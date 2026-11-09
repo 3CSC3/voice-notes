@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Voice Note</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
+  <script src="config.js"></script>
+</head>
+<body class="player-page">
+  <div class="app">
+    <div class="card player-card" id="playerCard">
+      <p class="player-meta" id="status">Loading voice note…</p>
+    </div>
+  </div>
+  <script>
+(function () {
+  "use strict";
+  const DB_NAME = "voice-notes-demo";
+  const DB_STORE = "notes";
+  const card = document.getElementById("playerCard");
+  const status = document.getElementById("status");
+  const params = new URLSearchParams(location.search);
+  const id = (params.get("id") || "").trim();
+  const srcParam = (params.get("src") || "").trim();
+
+  function formatTime(sec) {
+    const s = Math.max(0, Math.floor(Number(sec) || 0));
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return m + ":" + String(r).padStart(2, "0");
+  }
+
+  function render(note, audioUrl) {
+    document.title = (note.title ? note.title + " · " : "") + "Voice Note";
+    card.innerHTML = "";
+    const h = document.createElement("h1");
+    h.textContent = note.title || "Voice note";
+    const meta = document.createElement("p");
+    meta.className = "player-meta";
+    const bits = [];
+    if (note.name) bits.push(note.name);
+    if (note.duration) bits.push(formatTime(note.duration));
+    if (note.created_at) {
+      try {
+        bits.push(new Date(note.created_at).toLocaleString());
+      } catch (_) {}
+    }
+    meta.textContent = bits.join(" · ");
+    const audio = document.createElement("audio");
+    audio.controls = true;
+    audio.preload = "metadata";
+    audio.src = audioUrl;
+    card.appendChild(h);
+    card.appendChild(meta);
+    card.appendChild(audio);
+  }
+
+  function fail(msg) {
+    card.innerHTML = "";
+    const p = document.createElement("p");
+    p.className = "player-error";
+    p.textContent = msg;
+    card.appendChild(p);
+  }
+
+  if (!id && !srcParam) {
+    fail("Missing note id.");
+    return;
+  }
+
+  const cfg = window.VOICE_NOTES_CONFIG || {};
+  const hasSupabase =
+    cfg.SUPABASE_URL && cfg.SUPABASE_URL.trim() &&
+    cfg.SUPABASE_ANON_KEY && cfg.SUPABASE_ANON_KEY.trim();
+
+  async function fromDemo() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(DB_STORE)) {
+          resolve(null);
+          return;
+        }
+        const tx = db.transaction(DB_STORE, "readonly");
+        const get = tx.objectStore(DB_STORE).get(id);
+        get.onsuccess = () => resolve(get.result || null);
+        get.onerror = () => reject(get.error);
+      };
+    });
+  }
+
+  async function fromSupabase() {
+    const client = window.supabase.createClient(
+      cfg.SUPABASE_URL.trim(),
+      cfg.SUPABASE_ANON_KEY.trim()
+    );
+    const { data, error } = await client
+      .from("notes")
+      .select("id, created_at, name, title, audio_path, duration")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const { data: urlData } = client.storage.from("voice-notes").getPublicUrl(data.audio_path);
+    return { note: data, audioUrl: urlData.publicUrl };
+  }
+
+  (async function () {
+    try {
+      if (hasSupabase && id && window.supabase) {
+        const row = await fromSupabase();
+        if (row) {
+          render(row.note, srcParam || row.audioUrl);
+          return;
+        }
+      }
+      if (id) {
+        const demo = await fromDemo();
+        if (demo) {
+          render(demo, srcParam || demo.audio_data_url);
+          return;
+        }
+      }
+      if (srcParam) {
+        render({ name: "", title: "Voice note", duration: 0 }, srcParam);
+        return;
+      }
+      fail("Voice note not found. In Demo mode, notes only exist in the browser that recorded them.");
+    } catch (err) {
+      console.error(err);
+      fail("Could not load this voice note.");
+    }
+  })();
+})();
+  </script>
+</body>
+</html>

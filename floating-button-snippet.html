@@ -1,0 +1,25 @@
+<!--
+  LearnWorlds: paste into Site custom code → Body (logged in)
+  Path: Website → Design → Edit Website → Site → Site custom code
+  Docs: https://support.learnworlds.com/support/solutions/articles/12000075682-general-overview-custom-code
+        https://support.learnworlds.com/support/solutions/articles/12000082908-how-to-add-custom-code-in-your-learnworlds-school
+
+  Built-in community/Social page slug is "social".
+  Liquid conditionals ({% %}) are available on the Learning Center plan.
+  Replace APP_URL with your hosted Voice Notes folder URL (no trailing slash),
+  e.g. https://YOU.github.io/voice-notes
+-->
+
+{% if REQUEST.SLUG == "social" or REQUEST.PATH contains "/social" or REQUEST.PATH contains "/community" %}
+<script>
+  window.VOICE_NOTES_FLOAT = {
+    appUrl: "APP_URL/index.html",
+    pathPattern: "*",
+    buttonColor: "#f7a425",
+    userName: "{{USER.NAME}}",
+    title: "Voice Notes",
+    enhancePosts: true
+  };
+</script>
+<script src="APP_URL/floating-button.js" defer></script>
+{% endif %}

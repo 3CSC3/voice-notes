@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Voice Notes</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
+  <script src="config.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-text">
+        <h1>Voice Notes</h1>
+        <p class="subtitle">Record a note, get a link for your post</p>
+      </div>
+      <span id="modeBadge" class="badge" aria-live="polite">Demo mode</span>
+    </header>
+
+    <section class="card recorder" id="recorderSection" aria-labelledby="recorder-heading">
+      <h2 id="recorder-heading" class="sr-only">Recorder</h2>
+
+      <div class="status-row">
+        <div id="recIndicator" class="rec-dot" hidden></div>
+        <span id="timer" class="timer" aria-live="polite">0:00</span>
+        <span id="maxHint" class="hint">Max 3:00</span>
+      </div>
+
+      <div class="waveform" id="waveform" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+
+      <audio id="preview" controls class="preview" hidden></audio>
+
+      <div class="form-row">
+        <label for="displayName">Your name <span class="req">*</span></label>
+        <input id="displayName" type="text" maxlength="60" placeholder="e.g. Ana" autocomplete="name" required />
+      </div>
+      <div class="form-row">
+        <label for="noteTitle">Title <span class="optional">(optional)</span></label>
+        <input id="noteTitle" type="text" maxlength="80" placeholder="e.g. Week 2 reflection" />
+      </div>
+
+      <div class="actions" id="actionsIdle">
+        <button type="button" id="btnRecord" class="btn btn-primary">
+          <span class="btn-icon" aria-hidden="true">●</span> Record
+        </button>
+      </div>
+      <div class="actions" id="actionsRecording" hidden>
+        <button type="button" id="btnStop" class="btn btn-danger">
+          <span class="btn-icon" aria-hidden="true">■</span> Stop
+        </button>
+      </div>
+      <div class="actions" id="actionsPreview" hidden>
+        <button type="button" id="btnRerecord" class="btn btn-secondary">Re-record</button>
+        <button type="button" id="btnPost" class="btn btn-primary">Post &amp; get link</button>
+      </div>
+
+      <p id="recorderMsg" class="msg" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card result" id="resultSection" hidden aria-labelledby="result-heading">
+      <h2 id="result-heading">Link ready</h2>
+      <p class="result-lead">Paste this into your community post or comment. We’ve also sent it to the page that opened this window when possible.</p>
+      <label class="sr-only" for="shareLink">Share link</label>
+      <div class="link-row">
+        <input id="shareLink" type="text" readonly />
+        <button type="button" id="btnCopy" class="btn btn-primary">Copy</button>
+      </div>
+      <p id="copyMsg" class="msg ok" role="status" aria-live="polite"></p>
+      <div class="actions">
+        <button type="button" id="btnAnother" class="btn btn-secondary">Record another</button>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>Needs microphone permission. When embedded, the iframe must include <code>allow="microphone"</code>.</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
