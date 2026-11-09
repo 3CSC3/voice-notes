@@ -27,6 +27,7 @@
       appUrl: d.appUrl,
       pathPattern: d.pathPattern,
       buttonColor: d.buttonColor,
+      iconColor: d.iconColor,
       userName: d.userName,
       title: d.title,
       zIndex: d.zIndex,
@@ -34,6 +35,8 @@
       mode: d.mode,
       showFloatingFallback: d.showFloatingFallback,
       composerSelector: d.composerSelector,
+      supabaseUrl: d.supabaseUrl,
+      supabaseAnonKey: d.supabaseAnonKey,
     };
   }
 
@@ -51,10 +54,12 @@
 
   var dataCfg = readScriptData();
   var winCfg = window.VOICE_NOTES_FLOAT || {};
+  var pageCfg = window.VOICE_NOTES_CONFIG || {};
   var cfg = {
     appUrl: pick(winCfg.appUrl, pick(dataCfg.appUrl, "")),
     pathPattern: pick(winCfg.pathPattern, pick(dataCfg.pathPattern, "/community")),
     buttonColor: pick(winCfg.buttonColor, pick(dataCfg.buttonColor, "#f7a425")),
+    iconColor: pick(winCfg.iconColor, pick(dataCfg.iconColor, "#ffffff")),
     userName: pick(winCfg.userName, pick(dataCfg.userName, "")),
     title: pick(winCfg.title, pick(dataCfg.title, "Voice Notes")),
     zIndex: pick(winCfg.zIndex, pick(dataCfg.zIndex, 2147483000)),
@@ -65,6 +70,8 @@
       false
     ),
     composerSelector: pick(winCfg.composerSelector, pick(dataCfg.composerSelector, "")),
+    supabaseUrl: pick(winCfg.supabaseUrl, pick(pageCfg.SUPABASE_URL, "")),
+    supabaseAnonKey: pick(winCfg.supabaseAnonKey, pick(pageCfg.SUPABASE_ANON_KEY, "")),
   };
 
   function pathMatches() {
@@ -158,12 +165,50 @@
     "box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center;",
     "}",
     "#vn-float-toast[hidden]{display:none!important;}",
-    ".vn-inline-player{",
-    "display:block;margin:0.5rem 0;padding:0.65rem 0.75rem;",
-    "background:#fff8ec;border:1px solid #f7a42555;border-radius:12px;",
+    /* Compact voice-note pill (replaces huge inline player card) */
+    ".vn-voice-pill{",
+    "appearance:none;border:none;cursor:pointer;",
+    "display:inline-flex;align-items:center;gap:0.4rem;",
+    "margin:0.15rem 0.15rem 0.15rem 0;padding:0.35rem 0.75rem;",
+    "border-radius:999px;vertical-align:middle;",
+    "background:" + cfg.buttonColor + ";color:" + accentInk + ";",
+    "font:600 0.85rem system-ui,-apple-system,Segoe UI,Roboto,sans-serif;",
+    "box-shadow:0 1px 3px rgba(26,31,54,.15);",
+    "max-width:100%;",
     "}",
-    ".vn-inline-player audio{width:100%;display:block;}",
-    ".vn-inline-player a{font:600 0.8rem system-ui,sans-serif;color:#9a3412;}",
+    ".vn-voice-pill:hover{filter:brightness(0.95);}",
+    ".vn-voice-pill:focus-visible{outline:2px solid #fff;outline-offset:2px;box-shadow:0 0 0 4px " + cfg.buttonColor + ";}",
+    ".vn-voice-pill__icon{font-size:0.75rem;line-height:1;}",
+    ".vn-voice-pill__label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:14rem;}",
+    "a.vn-voice-link-hidden, .vn-voice-link-hidden{",
+    "position:absolute!important;width:1px!important;height:1px!important;",
+    "padding:0!important;margin:-1px!important;overflow:hidden!important;",
+    "clip:rect(0,0,0,0)!important;border:0!important;white-space:nowrap!important;",
+    "}",
+    /* Same-page popup player */
+    "#vn-player-overlay{",
+    "position:fixed;inset:0;background:rgba(15,23,42,.55);",
+    "z-index:" + (Number(cfg.zIndex) + 3) + ";",
+    "display:flex;align-items:center;justify-content:center;",
+    "padding:16px;",
+    "}",
+    "#vn-player-overlay[hidden]{display:none!important;}",
+    "#vn-player-modal{",
+    "background:#fff;border-radius:16px;width:min(400px,100%);",
+    "padding:1.1rem 1.15rem 1.2rem;box-shadow:0 24px 64px rgba(0,0,0,.35);",
+    "font:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1f36;",
+    "}",
+    "#vn-player-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:0.75rem;}",
+    "#vn-player-title{font-weight:700;font-size:1.05rem;margin:0;}",
+    "#vn-player-meta{margin:0.2rem 0 0;color:#5b6478;font-size:0.88rem;}",
+    "#vn-player-close{",
+    "appearance:none;border:none;background:#eef0f7;color:#1a1f36;",
+    "width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1.25rem;flex:0 0 auto;",
+    "}",
+    "#vn-player-close:hover{background:#e2e5ef;}",
+    "#vn-player-audio{width:100%;margin-top:0.35rem;}",
+    "#vn-player-status{margin:0.5rem 0 0;font-size:0.85rem;color:#5b6478;min-height:1.2em;}",
+    "#vn-player-status.is-error{color:#dc2626;}",
     /* Composer mic — toolbar icon size (~24–32px), LearnWorlds-friendly */
     ".vn-composer-mic{",
     "appearance:none;border:none;cursor:pointer;",
@@ -185,6 +230,18 @@
     "}",
     ".vn-composer-mic--corner svg{width:20px;height:20px;}",
     ".vn-composer-wrap{position:relative;}",
+    /* Mobile hardening: stop site/browser styles from recolouring the buttons */
+    "button.vn-composer-mic,button.vn-voice-pill,button#vn-float-btn,.vn-composer-mic,.vn-voice-pill,#vn-float-btn{",
+    "-webkit-appearance:none!important;appearance:none!important;",
+    "background:" + cfg.buttonColor + "!important;background-color:" + cfg.buttonColor + "!important;background-image:none!important;",
+    "color:" + accentInk + "!important;-webkit-text-fill-color:" + accentInk + "!important;",
+    "border:none!important;opacity:1!important;filter:none;",
+    "-webkit-tap-highlight-color:transparent;",
+    "}",
+    ".vn-composer-mic svg,.vn-composer-mic svg *,#vn-float-btn svg,#vn-float-btn svg *{",
+    "fill:" + accentInk + "!important;color:" + accentInk + "!important;stroke:none!important;opacity:1!important;",
+    "}",
+    ".vn-composer-mic:active,.vn-composer-mic:focus,.vn-voice-pill:active,.vn-voice-pill:focus{background:" + cfg.buttonColor + "!important;color:" + accentInk + "!important;}",
   ].join("");
   document.head.appendChild(style);
 
@@ -486,7 +543,7 @@
   var attached = new WeakMap(); // editable -> mic button
 
   function inVoiceUi(el) {
-    return !!(el.closest && el.closest("#vn-float-overlay, #vn-float-modal, #vn-float-btn, .vn-composer-mic, .vn-inline-player"));
+    return !!(el.closest && el.closest("#vn-float-overlay, #vn-float-modal, #vn-float-btn, .vn-composer-mic, .vn-voice-pill, #vn-player-overlay, .vn-inline-player"));
   }
 
   function looksLikeComposer(el) {
@@ -631,6 +688,10 @@
 
   function placeMicInToolbar(editable, toolbarInfo, mic) {
     mic.classList.remove("vn-composer-mic--corner");
+    if (editable && editable.classList && editable.classList.contains("vn-has-corner-mic")) {
+      editable.classList.remove("vn-has-corner-mic");
+      editable.style.removeProperty("padding-right");
+    }
     var row = toolbarInfo.row;
     var share = toolbarInfo.share;
     if (share && share.parentNode === row) {
@@ -647,6 +708,12 @@
   function placeMicCorner(editable, mic) {
     mic.classList.add("vn-composer-mic--corner");
     var host = editable;
+    // Keep typed/pasted text clear of the corner mic
+    try {
+      editable.classList.add("vn-has-corner-mic");
+      editable.style.setProperty("padding-right", "52px", "important");
+      editable.style.setProperty("box-sizing", "border-box", "important");
+    } catch (_) {}
     // Wrap or use parent if already positioned
     var parent = editable.parentElement;
     if (parent && parent.classList.contains("vn-composer-wrap")) {
@@ -754,6 +821,15 @@
     }
   }
 
+
+  // ---- Resolve note audio (src param, Supabase by id, or IndexedDB demo) ----
+  function formatDuration(sec) {
+    var s = Math.max(0, Math.floor(Number(sec) || 0));
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return m + ":" + String(r).padStart(2, "0");
+  }
+
   function demoGetNote(id) {
     return new Promise(function (resolve) {
       try {
@@ -776,76 +852,357 @@
     });
   }
 
-  function enhanceLink(anchor) {
-    if (!anchor || anchor.dataset.vnEnhanced === "1") return;
-    var href = anchor.href || anchor.getAttribute("href") || "";
-    var pat = playUrlPattern();
-    if (!pat.test(href)) return;
-    anchor.dataset.vnEnhanced = "1";
-
-    var u;
-    try { u = new URL(href, window.location.href); } catch (_) { return; }
-    var id = u.searchParams.get("id") || "";
-    var src = u.searchParams.get("src") || "";
-
-    var wrap = document.createElement("div");
-    wrap.className = "vn-inline-player";
-    wrap.setAttribute("data-vn-id", id);
-
-    var audio = document.createElement("audio");
-    audio.controls = true;
-    audio.preload = "metadata";
-
-    var open = document.createElement("a");
-    open.href = href;
-    open.target = "_blank";
-    open.rel = "noopener noreferrer";
-    open.textContent = "Open player";
-
-    function setSrc(url) {
-      if (!url) return;
-      if (/^(https?:|blob:|data:audio\/)/i.test(url)) {
-        audio.src = url;
-      }
-    }
-
-    function mountPlayer() {
-      wrap.appendChild(audio);
-      wrap.appendChild(open);
-      if (anchor.parentNode) {
-        anchor.parentNode.insertBefore(wrap, anchor.nextSibling);
-      }
-    }
-
-    if (src && /^https?:/i.test(src)) {
-      setSrc(src);
-      mountPlayer();
-      return;
-    }
-
-    if (id) {
-      demoGetNote(id).then(function (note) {
-        if (note && note.audio_data_url) setSrc(note.audio_data_url);
-        mountPlayer();
+  function supabaseFetchNote(id) {
+    var base = (cfg.supabaseUrl || "").replace(/\/$/, "");
+    var key = cfg.supabaseAnonKey || "";
+    if (!base || !key || !id) return Promise.resolve(null);
+    var url =
+      base +
+      "/rest/v1/notes?id=eq." +
+      encodeURIComponent(id) +
+      "&select=id,name,title,audio_path,duration,created_at";
+    return fetch(url, {
+      headers: {
+        apikey: key,
+        Authorization: "Bearer " + key,
+        Accept: "application/json",
+      },
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error("notes " + r.status);
+        return r.json();
+      })
+      .then(function (rows) {
+        if (!rows || !rows.length) return null;
+        var row = rows[0];
+        var audioUrl =
+          base +
+          "/storage/v1/object/public/voice-notes/" +
+          encodeURIComponent(row.audio_path).replace(/%2F/gi, "/");
+        return {
+          id: row.id,
+          name: row.name || "",
+          title: row.title || "",
+          duration: row.duration,
+          audioUrl: audioUrl,
+        };
+      })
+      .catch(function () {
+        return null;
       });
+  }
+
+  function resolveNote(id, srcParam) {
+    var src = (srcParam || "").trim();
+    return Promise.resolve()
+      .then(function () {
+        if (id) return supabaseFetchNote(id);
+        return null;
+      })
+      .then(function (sb) {
+        if (sb) {
+          if (src && /^https?:/i.test(src)) sb.audioUrl = src;
+          return sb;
+        }
+        if (id) {
+          return demoGetNote(id).then(function (demo) {
+            if (!demo) {
+              if (src && /^https?:/i.test(src)) {
+                return { id: id, name: "", title: "Voice note", audioUrl: src };
+              }
+              return null;
+            }
+            return {
+              id: demo.id,
+              name: demo.name || "",
+              title: demo.title || "",
+              duration: demo.duration,
+              audioUrl: (src && /^https?:/i.test(src) ? src : null) || demo.audio_data_url || "",
+            };
+          });
+        }
+        if (src && /^https?:/i.test(src)) {
+          return { id: "", name: "", title: "Voice note", audioUrl: src };
+        }
+        return null;
+      });
+  }
+
+  // ---- Popup player ----
+  var playerOverlay = document.createElement("div");
+  playerOverlay.id = "vn-player-overlay";
+  playerOverlay.setAttribute("hidden", "");
+  playerOverlay.setAttribute("role", "presentation");
+  playerOverlay.innerHTML =
+    '<div id="vn-player-modal" role="dialog" aria-modal="true" aria-labelledby="vn-player-title">' +
+    '<div id="vn-player-header">' +
+    '<div><h2 id="vn-player-title">Voice note</h2><p id="vn-player-meta"></p></div>' +
+    '<button type="button" id="vn-player-close" aria-label="Close">×</button>' +
+    "</div>" +
+    '<audio id="vn-player-audio" controls preload="metadata"></audio>' +
+    '<p id="vn-player-status"></p>' +
+    "</div>";
+
+  function mountPlayerChrome() {
+    if (!document.getElementById("vn-player-overlay")) {
+      document.body.appendChild(playerOverlay);
+    }
+  }
+  if (document.body) mountPlayerChrome();
+  else document.addEventListener("DOMContentLoaded", mountPlayerChrome);
+
+  function closePlayerPopup() {
+    var ov = document.getElementById("vn-player-overlay");
+    if (!ov) return;
+    ov.setAttribute("hidden", "");
+    var audio = document.getElementById("vn-player-audio");
+    if (audio) {
+      try { audio.pause(); } catch (_) {}
+      try { audio.removeAttribute("src"); audio.load(); } catch (_) {}
+    }
+  }
+
+  function openPlayerPopup(note) {
+    mountPlayerChrome();
+    var ov = document.getElementById("vn-player-overlay");
+    var titleEl = document.getElementById("vn-player-title");
+    var metaEl = document.getElementById("vn-player-meta");
+    var statusEl = document.getElementById("vn-player-status");
+    var audio = document.getElementById("vn-player-audio");
+    titleEl.textContent = (note && note.title) || "Voice note";
+    var bits = [];
+    if (note && note.name) bits.push(note.name);
+    if (note && note.duration) bits.push(formatDuration(note.duration));
+    metaEl.textContent = bits.join(" · ");
+    statusEl.textContent = "";
+    statusEl.className = "";
+    ov.removeAttribute("hidden");
+    if (!note || !note.audioUrl) {
+      statusEl.textContent = "Could not load this voice note.";
+      statusEl.className = "is-error";
+      return;
+    }
+    if (!/^(https?:|blob:|data:audio\/)/i.test(note.audioUrl)) {
+      statusEl.textContent = "Invalid audio URL.";
+      statusEl.className = "is-error";
+      return;
+    }
+    audio.src = note.audioUrl;
+    var playPromise = audio.play();
+    if (playPromise && playPromise.catch) {
+      playPromise.catch(function () {
+        statusEl.textContent = "Press play to listen.";
+      });
+    }
+  }
+
+  playerOverlay.addEventListener("click", function (e) {
+    if (e.target === playerOverlay) closePlayerPopup();
+    if (e.target && e.target.id === "vn-player-close") closePlayerPopup();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      var ov = document.getElementById("vn-player-overlay");
+      if (ov && !ov.hasAttribute("hidden")) {
+        e.preventDefault();
+        closePlayerPopup();
+      }
+    }
+  });
+
+  function parsePlayUrl(href) {
+    try {
+      var u = new URL(href, window.location.href);
+      var pat = playUrlPattern();
+      if (!pat.test(u.href)) return null;
+      return {
+        href: u.href,
+        id: u.searchParams.get("id") || "",
+        src: u.searchParams.get("src") || "",
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function pillLabel(note) {
+    var label = "Voice note";
+    if (note && note.title) label = note.title;
+    else if (note && note.name) label = note.name + "'s voice note";
+    if (note && note.duration) label += " · " + formatDuration(note.duration);
+    return label;
+  }
+
+  function makePill(parsed, noteHint) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "vn-voice-pill";
+    btn.setAttribute("data-vn-play-id", parsed.id || "");
+    if (parsed.src) btn.setAttribute("data-vn-play-src", parsed.src);
+    btn.innerHTML =
+      '<span class="vn-voice-pill__icon" aria-hidden="true">▶</span>' +
+      '<span class="vn-voice-pill__label"></span>';
+    btn.querySelector(".vn-voice-pill__label").textContent = pillLabel(noteHint || null);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var id = btn.getAttribute("data-vn-play-id") || parsed.id;
+      var src = btn.getAttribute("data-vn-play-src") || parsed.src;
+      btn.querySelector(".vn-voice-pill__label").textContent = "Loading…";
+      resolveNote(id, src).then(function (note) {
+        btn.querySelector(".vn-voice-pill__label").textContent = pillLabel(note || noteHint);
+        openPlayerPopup(note || { title: "Voice note", audioUrl: src });
+      });
+    });
+    // Prefetch meta for nicer label when we have supabase / src
+    resolveNote(parsed.id, parsed.src).then(function (note) {
+      if (!note) return;
+      if (note.title || note.name || note.duration) {
+        btn.querySelector(".vn-voice-pill__label").textContent = pillLabel(note);
+      }
+      if (note.id) btn.setAttribute("data-vn-play-id", note.id);
+      if (note.audioUrl && /^https?:/i.test(note.audioUrl)) {
+        btn.setAttribute("data-vn-play-src", note.audioUrl);
+      }
+    });
+    return btn;
+  }
+
+  function isInsideComposer(node) {
+    var el = node.nodeType === 1 ? node : node.parentElement;
+    while (el && el !== document.documentElement) {
+      if (el.isContentEditable) return true;
+      if (el.tagName === "TEXTAREA" || el.tagName === "INPUT") return true;
+      if (el.classList && (el.classList.contains("ql-editor") || el.classList.contains("ProseMirror"))) return true;
+      if (el.getAttribute && el.getAttribute("role") === "textbox") return true;
+      if (el.closest && el.closest(".vn-composer-wrap, .lw-editor, #postComposer, #commentBox")) {
+        // demo composers
+        if (el.closest(".lw-editor, #postComposer, #commentBox, [contenteditable='true']")) return true;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  function enhanceAnchor(anchor) {
+    if (!anchor || anchor.dataset.vnEnhanced === "1") return;
+    if (isInsideComposer(anchor)) return;
+    if (anchor.closest && anchor.closest(".vn-voice-pill, #vn-player-overlay, #vn-float-overlay")) return;
+    var href = anchor.href || anchor.getAttribute("href") || "";
+    var parsed = parsePlayUrl(href);
+    if (!parsed) return;
+    anchor.dataset.vnEnhanced = "1";
+    anchor.classList.add("vn-voice-link-hidden");
+    anchor.setAttribute("tabindex", "-1");
+    anchor.setAttribute("aria-hidden", "true");
+
+    // Intercept any click that still reaches the anchor
+    anchor.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      resolveNote(parsed.id, parsed.src).then(function (note) {
+        openPlayerPopup(note || { title: "Voice note", audioUrl: parsed.src });
+      });
+    });
+
+    // Don't duplicate pills
+    var next = anchor.nextSibling;
+    while (next && next.nodeType === 3 && !(next.nodeValue || "").trim()) next = next.nextSibling;
+    if (next && next.classList && next.classList.contains("vn-voice-pill")) {
+      if (!parsed.id || next.getAttribute("data-vn-play-id") === parsed.id) return;
+    }
+    if (parsed.id && anchor.parentNode && anchor.parentNode.querySelector('.vn-voice-pill[data-vn-play-id="' + parsed.id + '"]')) {
       return;
     }
 
-    mountPlayer();
+    var pill = makePill(parsed);
+    if (anchor.parentNode) {
+      anchor.parentNode.insertBefore(pill, anchor.nextSibling);
+    }
+  }
+
+  // Match absolute or site-relative play.html?id=… URLs in plain text
+  var PLAY_URL_RE = /https?:\/\/[^\s<>"']+play\.html\?[^\s<>"']+|\/[^\s<>"']*play\.html\?[^\s<>"']+/gi;
+
+  function enhanceTextNode(textNode) {
+    if (!textNode || textNode.nodeType !== 3) return;
+    if (isInsideComposer(textNode)) return;
+    var parent = textNode.parentElement;
+    if (!parent) return;
+    if (parent.closest && parent.closest("a, .vn-voice-pill, .vn-voice-link-hidden, script, style, textarea, #vn-float-overlay, #vn-player-overlay")) return;
+    if (parent.dataset && parent.dataset.vnTextEnhanced === "1") return;
+
+    var text = textNode.nodeValue || "";
+    PLAY_URL_RE.lastIndex = 0;
+    if (!PLAY_URL_RE.test(text)) return;
+    PLAY_URL_RE.lastIndex = 0;
+
+    var frag = document.createDocumentFragment();
+    var last = 0;
+    var m;
+    var matched = false;
+    while ((m = PLAY_URL_RE.exec(text))) {
+      var raw = m[0];
+      // trim trailing punctuation
+      raw = raw.replace(/[),.;!?]+$/g, "");
+      var parsed = parsePlayUrl(raw);
+      if (!parsed) continue;
+      matched = true;
+      if (m.index > last) {
+        frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      }
+      var hidden = document.createElement("span");
+      hidden.className = "vn-voice-link-hidden";
+      hidden.textContent = raw;
+      hidden.dataset.vnEnhanced = "1";
+      frag.appendChild(hidden);
+      if (!(parsed.id && parent.querySelector && parent.querySelector('.vn-voice-pill[data-vn-play-id="' + parsed.id + '"]'))) {
+        frag.appendChild(makePill(parsed));
+      }
+      last = m.index + m[0].length;
+      // if we trimmed punctuation, put it back after pill
+      if (m[0].length > raw.length) {
+        frag.appendChild(document.createTextNode(m[0].slice(raw.length)));
+      }
+    }
+    if (!matched) return;
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    parent.dataset.vnTextEnhanced = "1";
+    parent.replaceChild(frag, textNode);
+  }
+
+  function walkTextNodes(root) {
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var nodes = [];
+    var n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    for (var i = 0; i < nodes.length; i++) {
+      try { enhanceTextNode(nodes[i]); } catch (err) { console.error(err); }
+    }
   }
 
   function enhancePosts() {
     if (!cfg.enhancePosts) return;
-    var pat = playUrlPattern();
+    // Remove legacy big cards if any remain
+    document.querySelectorAll(".vn-inline-player").forEach(function (el) {
+      el.remove();
+    });
+
     var links = document.querySelectorAll("a[href]");
     for (var i = 0; i < links.length; i++) {
       var a = links[i];
-      if (a.closest && a.closest(".vn-inline-player")) continue;
-      var href = a.getAttribute("href") || "";
-      if (!href) continue;
+      if (a.dataset.vnEnhanced === "1") continue;
+      if (a.closest && a.closest(".vn-voice-pill")) continue;
       try {
-        if (pat.test(a.href || href)) enhanceLink(a);
+        if (parsePlayUrl(a.href || a.getAttribute("href") || "")) enhanceAnchor(a);
       } catch (_) {}
+    }
+
+    // Plain-text URLs in post bodies (not composers)
+    try {
+      walkTextNodes(document.body);
+    } catch (err) {
+      console.error(err);
     }
   }
 

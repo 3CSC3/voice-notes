@@ -313,10 +313,11 @@
     return { audio_path: path, audio_url: urlData.publicUrl };
   }
 
-  function buildShareLink(id, audioUrl) {
+  function buildShareLink(id, _audioUrl) {
+    // Short link: play.html?id=… only. Player / community popup resolve audio via Supabase.
+    // Old links with &src= remain supported for playback.
     const u = new URL("play.html", window.location.href);
     u.searchParams.set("id", id);
-    if (audioUrl) u.searchParams.set("src", audioUrl);
     return u.href;
   }
 
