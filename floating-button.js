@@ -12,7 +12,6 @@
 (function () {
   "use strict";
   if (window.__vnFloatInstalled) return;
-  window.__vnFloatInstalled = true;
 
   var MSG_TYPE = "voice-notes:link";
   var DB_NAME = "voice-notes-demo";
@@ -21,7 +20,13 @@
 
   function readScriptData() {
     var scripts = document.getElementsByTagName("script");
-    var me = scripts[scripts.length - 1];
+    var me = document.currentScript;
+    if (!me) {
+      for (var i = scripts.length - 1; i >= 0; i--) {
+        if (/floating-button\.js(?:[?#]|$)/.test(scripts[i].src || "")) { me = scripts[i]; break; }
+      }
+    }
+    if (!me) me = scripts[scripts.length - 1];
     var d = (me && me.dataset) || {};
     return {
       appUrl: d.appUrl,
@@ -87,6 +92,8 @@
   }
 
   if (!pathMatches()) return;
+  window.__vnFloatInstalled = true;
+  var micStatus = window.__vnMicStatus = { version: "2026-11-10-desktop", loaded: true, composers: 0, visibleMics: 0, lastError: "" };
 
   function appOrigin() {
     try {
@@ -548,7 +555,32 @@
 
   // ---- Find composers & attach mics ----
   var composerIdSeq = 0;
-  var attached = new WeakMap(); // editable -> mic button
+  var attached = new WeakMap(); // editable/closed-composer trigger -> mic button
+  var composerOwners = Object.create(null);
+  var composerRoots = new WeakMap();
+  var composerEntries = [];
+  var EDITOR_SELECTOR = 'textarea, [contenteditable]:not([contenteditable="false"]), .ql-editor, .ProseMirror, [role="textbox"]';
+
+  function isVisibleComposer(el) {
+    try {
+      if (!el || !document.contains(el) || !el.getClientRects().length) return false;
+      if (el.closest('[hidden], [aria-hidden="true"]')) return false;
+      var cs = window.getComputedStyle(el);
+      return cs.display !== "none" && cs.visibility !== "hidden" && cs.visibility !== "collapse";
+    } catch (_) { return false; }
+  }
+
+  function actualComposer(el) {
+    if (isEditable(el)) return el;
+    var root = composerRoots.get(el);
+    if (root) {
+      var editors = root.querySelectorAll(EDITOR_SELECTOR);
+      for (var i = 0; i < editors.length; i++) {
+        if (isEditable(editors[i]) && isVisibleComposer(editors[i])) return editors[i];
+      }
+    }
+    return null;
+  }
 
   function inVoiceUi(el) {
     return !!(el.closest && el.closest("#vn-float-overlay, #vn-float-modal, #vn-float-btn, .vn-composer-mic, .vn-voice-pill, #vn-player-overlay, .vn-inline-player"));
@@ -556,7 +588,7 @@
 
   function looksLikeComposer(el) {
     if (!el || el.nodeType !== 1) return false;
-    if (inVoiceUi(el)) return false;
+    if (inVoiceUi(el) || !isVisibleComposer(el)) return false;
     if (el.tagName === "INPUT") {
       var t = (el.type || "text").toLowerCase();
       if (t === "search" || t === "hidden" || t === "checkbox" || t === "radio" || t === "submit" || t === "button") {
@@ -596,9 +628,7 @@
       } catch (_) {}
     }
 
-    document.querySelectorAll(
-      'textarea, [contenteditable="true"], [contenteditable=""], .ql-editor, .ProseMirror, [role="textbox"]'
-    ).forEach(function (el) {
+    document.querySelectorAll(EDITOR_SELECTOR).forEach(function (el) {
       if (el.matches && el.matches(".ql-editor, .ProseMirror, [role='textbox']") && !el.isContentEditable && el.tagName !== "TEXTAREA") {
         // role=textbox divs are usually contenteditable
         if (el.getAttribute("contenteditable") == null && el.tagName !== "TEXTAREA") {
@@ -613,6 +643,31 @@
       }
     });
 
+    // Desktop LearnWorlds can initially render a clickable placeholder rather than
+    // an editor. Recognize that CLOSED composer too, but only beside a real Share toolbar.
+    var hintPattern = /^\s*(?:type something\b|write a (?:comment|reply|post)\b|add a comment\b|escreva (?:algo|um coment))/i;
+    function addClosed(el, hint) {
+      if (!el || seen.has(el) || !hintPattern.test(hint || "") || !looksLikeComposer(el)) return;
+      if (el.closest('[contenteditable="true"], [contenteditable="plaintext-only"], textarea')) { add(el); return; }
+      var info = findToolbar(el);
+      if (!info || !info.share || !info.root || info.root === document.body || info.root === document.documentElement) return;
+      var real = info.root.querySelectorAll(EDITOR_SELECTOR);
+      for (var i = 0; i < real.length; i++) {
+        if (isEditable(real[i]) && isVisibleComposer(real[i])) return;
+      }
+      composerRoots.set(el, info.root);
+      add(el);
+    }
+    document.querySelectorAll('[data-placeholder], [placeholder]').forEach(function (el) {
+      addClosed(el, el.getAttribute("data-placeholder") || el.getAttribute("placeholder"));
+    });
+    try {
+      var walker = document.createTreeWalker(document.body || document.documentElement, 4);
+      var text;
+      while ((text = walker.nextNode())) {
+        if (hintPattern.test(text.nodeValue || "")) addClosed(text.parentElement, text.nodeValue);
+      }
+    } catch (_) {}
     return found;
   }
 
@@ -635,7 +690,7 @@
       var candidates = parent.querySelectorAll("button, a, [role='button']");
       var share = null;
       for (var i = 0; i < candidates.length; i++) {
-        if (isShareControl(candidates[i])) {
+        if (isShareControl(candidates[i]) && isVisibleComposer(candidates[i])) {
           share = candidates[i];
           break;
         }
@@ -655,7 +710,7 @@
       var toolbar = parent.querySelector(
         '[class*="toolbar" i], [class*="composer-actions" i], [class*="editor-actions" i], [data-testid*="toolbar" i]'
       );
-      if (toolbar && toolbar !== editable && !editable.contains(toolbar)) {
+      if (toolbar && toolbar !== editable && !editable.contains(toolbar) && isVisibleComposer(toolbar)) {
         return { row: toolbar, share: null, root: parent };
       }
       node = parent;
@@ -664,11 +719,15 @@
   }
 
   function ensureComposerId(el) {
-    if (!el.dataset.vnComposerId) {
-      composerIdSeq += 1;
-      el.dataset.vnComposerId = "c" + composerIdSeq;
+    var id = el.dataset.vnComposerId;
+    // Responsive frameworks may clone an editor AND its data attributes. Never
+    // reuse a hidden/mobile editor's microphone for a different desktop element.
+    if (!id || (composerOwners[id] && composerOwners[id] !== el)) {
+      do { composerIdSeq += 1; id = "c" + composerIdSeq; } while (composerOwners[id]);
+      el.dataset.vnComposerId = id;
     }
-    return el.dataset.vnComposerId;
+    composerOwners[id] = el;
+    return id;
   }
 
   function makeMicButton(editable) {
@@ -687,15 +746,31 @@
     b.addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
-      rememberFocus(editable);
-      insertionTarget = editable;
-      openModal(editable);
+      var target = actualComposer(editable);
+      if (!target) {
+        // This is the collapsed desktop placeholder: activate the actual editor
+        // first. This NEVER clicks Share or submits a post.
+        try { editable.click(); } catch (_) {}
+        target = actualComposer(editable);
+      }
+      if (target) rememberFocus(target);
+      insertionTarget = target;
+      openModal(target);
+      if (!target) {
+        // Some frameworks mount the editor on the next render, not synchronously.
+        [80, 250, 600].forEach(function (delay) {
+          setTimeout(function () {
+            var real = actualComposer(editable);
+            if (real) { insertionTarget = real; rememberFocus(real); }
+          }, delay);
+        });
+      }
     });
     return b;
   }
 
   function placeMicInToolbar(editable, toolbarInfo, mic) {
-    mic.classList.remove("vn-composer-mic--corner");
+    if (mic.classList.contains("vn-composer-mic--corner")) mic.classList.remove("vn-composer-mic--corner");
     if (editable && editable.classList && editable.classList.contains("vn-has-corner-mic")) {
       editable.classList.remove("vn-has-corner-mic");
       editable.style.removeProperty("padding-right");
@@ -704,11 +779,11 @@
     var share = toolbarInfo.share;
     if (share && share.parentNode === row) {
       // Insert before the share button (end of icon cluster)
-      row.insertBefore(mic, share);
+      if (mic.parentNode !== row || mic.nextSibling !== share) row.insertBefore(mic, share);
     } else if (share && share.parentNode) {
-      share.parentNode.insertBefore(mic, share);
+      if (mic.parentNode !== share.parentNode || mic.nextSibling !== share) share.parentNode.insertBefore(mic, share);
     } else {
-      row.appendChild(mic);
+      if (mic.parentNode !== row) row.appendChild(mic);
     }
     return true;
   }
@@ -755,26 +830,19 @@
   }
 
   function attachMic(editable) {
-    if (attached.has(editable)) {
-      var existing = attached.get(editable);
-      if (existing && document.contains(existing)) return;
-    }
-    // Already has a mic pointing at this id?
-    var id = ensureComposerId(editable);
-    var prior = document.querySelector('.vn-composer-mic[' + MIC_ATTR + '="' + id + '"]');
-    if (prior && document.contains(prior)) {
-      attached.set(editable, prior);
+    var toolbar = findToolbar(editable);
+    if (toolbar && toolbar.root) composerRoots.set(editable, toolbar.root);
+    var existing = attached.get(editable);
+    if (existing && document.contains(existing)) {
+      if (existing.hidden) existing.hidden = false;
+      if (toolbar && toolbar.row) placeMicInToolbar(editable, toolbar, existing);
       return;
     }
-
     var mic = makeMicButton(editable);
-    var toolbar = findToolbar(editable);
-    if (toolbar && toolbar.row) {
-      placeMicInToolbar(editable, toolbar, mic);
-    } else {
-      placeMicCorner(editable, mic);
-    }
+    if (toolbar && toolbar.row) placeMicInToolbar(editable, toolbar, mic);
+    else placeMicCorner(editable, mic);
     attached.set(editable, mic);
+    composerEntries.push({ editor: editable, mic: mic });
   }
 
   function scanComposers() {
@@ -783,10 +851,27 @@
       return;
     }
     var list = collectComposers();
+    micStatus.composers = list.length;
+    composerEntries = composerEntries.filter(function (entry) {
+      if (!document.contains(entry.editor)) {
+        var retiredId = entry.editor.dataset.vnComposerId;
+        if (retiredId && composerOwners[retiredId] === entry.editor) delete composerOwners[retiredId];
+        if (entry.mic.parentNode) entry.mic.parentNode.removeChild(entry.mic);
+        return false;
+      }
+      var inactive = list.indexOf(entry.editor) === -1;
+      if (entry.mic.hidden !== inactive) entry.mic.hidden = inactive;
+      return true;
+    });
     for (var i = 0; i < list.length; i++) {
-      try { attachMic(list[i]); } catch (err) { console.error(err); }
+      try { attachMic(list[i]); } catch (err) { micStatus.lastError = String(err && err.message || err); console.error(err); }
     }
-    var anyMic = document.querySelector(".vn-composer-mic");
+    var allMics = document.querySelectorAll(".vn-composer-mic");
+    var anyMic = false;
+    micStatus.visibleMics = 0;
+    for (var j = 0; j < allMics.length; j++) {
+      if (isVisibleComposer(allMics[j])) { anyMic = true; micStatus.visibleMics++; }
+    }
     if (cfg.mode === "inline") {
       if (!anyMic && cfg.showFloatingFallback) {
         floatBtn.hidden = false;
@@ -802,10 +887,33 @@
   function scheduleScan() {
     if (scanTimer) clearTimeout(scanTimer);
     scanTimer = setTimeout(function () {
-      scanComposers();
-      scheduleEnhance();
+      try { scanComposers(); } catch (err) { micStatus.lastError = String(err && err.message || err); console.warn("[voice-notes mic]", err); }
+      try { scheduleEnhance(); } catch (err) { console.warn("[voice-notes player]", err); }
     }, 200);
   }
+
+  // Mount the mic independently: optional audio/player/privacy failures must
+  // not prevent it from appearing. No storage, microphone or wake-lock access here.
+  function boot() {
+    try { scanComposers(); } catch (err) { micStatus.lastError = String(err && err.message || err); console.warn("[voice-notes mic]", err); }
+    setTimeout(function () { try { scheduleEnhance(); } catch (_) {} }, 0);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+  window.addEventListener("resize", scheduleScan);
+  document.addEventListener("focusin", scheduleScan, true);
+  try {
+    var mo = new MutationObserver(function (mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        var target = mutations[i].target;
+        if (target && target.nodeType === 1 && inVoiceUi(target)) continue;
+        scheduleScan();
+        break;
+      }
+    });
+    mo.observe(document.documentElement, { childList: true, subtree: true, attributes: true,
+      attributeFilter: ["contenteditable", "hidden", "aria-hidden", "class", "style"] });
+  } catch (_) {}
 
   // ---- Inline player enhancement ----
   function playUrlPattern() {
@@ -1019,6 +1127,7 @@
     syncPlaybackUi();
   }
 
+  try {
   playerOverlay.querySelector("#vn-player-toggle").addEventListener("click", toggleCurrentAudio);
   ["play", "pause", "ended", "emptied", "error"].forEach(function (event) {
     playerOverlay.querySelector("#vn-player-audio").addEventListener(event, function () {
@@ -1026,6 +1135,10 @@
       syncPlaybackUi();
     });
   });
+
+  } catch (err) {
+    console.warn("[voice-notes player] Audio controls unavailable; the recorder mic is still active.", err);
+  }
 
   function openPlayerPopup(note) {
     mountPlayerChrome();
@@ -1285,28 +1398,5 @@
     enhanceTimer = setTimeout(enhancePosts, 200);
   }
 
-  function boot() {
-    scanComposers();
-    scheduleEnhance();
-  }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
-  }
-
-  try {
-    var mo = new MutationObserver(function (mutations) {
-      // Ignore our own mic/player/modal mutations to reduce loops
-      for (var i = 0; i < mutations.length; i++) {
-        var m = mutations[i];
-        if (m.addedNodes && m.addedNodes.length) {
-          scheduleScan();
-          return;
-        }
-      }
-    });
-    mo.observe(document.documentElement, { childList: true, subtree: true });
-  } catch (_) {}
 })();
