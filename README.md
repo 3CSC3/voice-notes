@@ -1,22 +1,22 @@
 # Voice Notes (LearnWorlds community)
 
-Record a short voice note, get a **shareable link**, and drop it into a LearnWorlds community post or comment. Others open the link (or hear it inline) to listen.
+Record a short voice note, get a **shareable link**, and drop it into a LearnWorlds community post or comment. Others tap the orange pill to listen in a same-page player.
 
-Free static app (HTML/CSS/vanilla JS) — host on GitHub Pages, embed via a floating mic button in LearnWorlds custom code.
+Free static app (HTML/CSS/vanilla JS) — host on GitHub Pages, embed via a composer mic button in LearnWorlds custom code.
 
 ## How it works
 
-1. Learner focuses a post/comment box, taps the floating mic.
+1. Learner focuses a post/comment box, taps the orange mic in its toolbar.
 2. They record (up to 3 minutes), preview, then **Post & get link**.
 3. Audio is uploaded (Supabase) or stored locally (Demo mode).
 4. A `play.html?id=…` link is copied and, when opened from the floating button, **inserted into the composer** via `postMessage`.
-5. They press Send/Enter as usual. Listeners open the link (or an inline player under the link).
+5. They press Send/Enter as usual. Listeners tap the pill for the same-page player.
 
 There is **no community feed** in the app — sharing happens through your LearnWorlds posts.
 
 ## Accent
 
-Primary accent color: **`#f7a425`** (buttons, floating mic, highlights). Text on accent uses dark ink for contrast.
+Primary accent color: **`#f7a425`** (buttons, floating mic, highlights). Microphone and Play/Pause icons are white.
 
 ## Try locally (Demo mode)
 
@@ -44,9 +44,9 @@ In Demo mode, notes live in **this browser’s IndexedDB** only. Share links wor
 
 Share links look like:
 
-`https://YOU.github.io/voice-notes/play.html?id=<uuid>&src=<public-audio-url>`
+`https://YOU.github.io/voice-notes/play.html?id=<uuid>`
 
-The optional `src` lets community pages show an **inline audio player** without extra API calls.
+Older links with an optional `src` audio URL still play. New short links look up the audio by note ID.
 
 **Security:** prototype policies allow anonymous public insert/read. Tighten with auth before a large public school.
 
@@ -61,12 +61,19 @@ The optional `src` lets community pages show an **inline audio player** without 
 
 ### Install
 
-1. Host this folder; note the base URL.
-2. Edit `floating-button-snippet.html` — replace `APP_URL` with your base (e.g. `https://YOU.github.io/voice-notes`).
+1. Host this folder (Catarina’s live app: `https://3csc3.github.io/voice-notes/`).
+2. Use `floating-button-snippet.html` (already points at that URL) or set:
+   - `appUrl`: `https://3csc3.github.io/voice-notes/index.html`
+   - `pathPattern`: `*` inside the Liquid `/social` guard (or `"/social"`)
+   - `mode`: `"inline"` (default) — mic in each post/comment **toolbar** near Share
+   - `mode`: `"floating"` — old bottom-right FAB only
+   - `showFloatingFallback`: `true` only if you want the FAB when no composer is found
 3. Paste into **Site custom code → Body logged in**.
-4. Save/publish. On `/social`, use the orange mic.
+4. Save/publish. Open `/social` — orange mics appear beside Share on post/comment toolbars.
 
-Flow: focus the composer → mic → record → post → link is inserted (or copied with a toast if insertion isn’t possible).
+Flow: tap the mic on the toolbar of the box you’re writing in → record → post → link is inserted into **that** box (or copied with a toast if insertion isn’t possible).
+
+Optional: `composerSelector` — CSS selector if LearnWorlds’ editor needs a tighter match.
 
 ### LearnWorlds composer (what we know / don’t)
 
@@ -90,7 +97,7 @@ You can still iframe the recorder on a page:
   width="100%"
   height="640"
   style="border:0;border-radius:12px;"
-  allow="microphone"
+  allow="microphone; screen-wake-lock"
   title="Voice Notes"
 ></iframe>
 ```
@@ -110,6 +117,54 @@ LearnWorlds Embed section: [school pages](https://support.learnworlds.com/suppor
 | `floating-demo.html` | Local community composer simulation |
 | `README.md` | This guide |
 
-## Later ideas
+### Compact pills + popup player
 
-Transcription / translation into English can be added once the share-link flow feels right in your community.
+In rendered community posts, voice links are replaced visually with a compact orange **▶ Voice note** pill (the raw URL stays hidden in the DOM). Clicking the pill opens a **same-page popup player** — no new tab.
+
+New recordings insert a short link: `play.html?id=<uuid>`. The popup (and `play.html`) load audio from Supabase by id. Older links that include `&src=` still work.
+
+LearnWorlds snippet must include `supabaseUrl` and `supabaseAnonKey` (see `floating-button-snippet.html`) so pills can resolve audio on `/social` pages.
+
+
+## Pause / resume (recording and listening)
+
+- While recording, press **Pause** to take a break and **Resume** to continue the same note. The orange steady dot, **Paused** badge and frozen waveform make the state clear. **Stop** finishes the note even if it is paused.
+- The timer and 3-minute limit count **only time actually recording**, not your thinking breaks. Your microphone may still show as in use while paused (so you can resume), but paused speech is not added to the note. Stop releases it.
+- Pause/resume uses native `MediaRecorder.pause()` / `resume()` (modern iOS Safari and Android Chrome). If the browser does not implement both methods, the pause button is hidden and Record/Stop still work. Use an up-to-date browser; actual iPhone/Android hardware has not been tested here.
+- When listening, there is now a large orange **Play / Pause** button in both the community pop-up and the standalone player, in addition to the visible native audio controls. The post's pill changes from **▶** to **❚❚** while its note plays (matching copies update too). The pill's handler toggles the loaded note rather than restarting it; while the modal is open, use its Play/Pause button because the background is deliberately blocked.
+- Closing the pop-up or pressing Escape pauses playback. Reopening the same note resumes at its saved position; selecting a different note switches audio. Pills have at least a 44-pixel tap target; the playback button is at least 48 pixels high.
+
+### Installing this update
+
+Unzip `voice-notes-update.zip` and upload the files **inside** the folder to the root of your existing GitHub repository (not a new subfolder). It includes the recording/playback Pause controls and tab-switching safeguards, without any transcript or translation feature. No new SQL and no change to the LearnWorlds snippet are needed. Wait for GitHub Pages to publish, then refresh the community (a phone may need its website cache cleared).
+
+Transcription and translation are deferred. Their source files are saved separately on the development box in `/workspace/voice-notes-transcripts-later/`, NOT in the app or this update. The shipped players never load those scripts or create their iframe/buttons. If old transcript files are already in your GitHub repo, you can leave them unused or delete them later; do not delete `play.html` or `floating-button.js`. Any previously added database text columns are unused and can stay — do not run SQL to remove them.
+
+### Pause test coverage
+
+Headless Chromium using the browser's synthetic microphone with a real MediaRecorder: 4.5 seconds of active audio decoded correctly from roughly 8 seconds of wall time; the timer froze while paused, resumed, and Stop worked while paused. A controlled clock jump verified a 10-minute pause does not count against the active 180-second limit. Preview, local save and short link creation still worked. Missing pause/resume methods hid the button. Pop-up/standalone Play-Pause, pill state, note switching, retaining position on close/reopen, Escape, native control visibility and tap sizes all passed. No live notes were created or modified by testing. Background tests simulated hidden/visible events in the actual recorder iframe and verified desktop recording continues, mobile recording pauses and needs an explicit Resume, the timer catches up from timestamp differences, microphone interruptions keep a playable preview, and both players keep playing. These are Chromium tests, not proof of real iOS/Android behavior.
+
+
+## Switching tabs, other apps, and live classes
+
+The orange mic opens a **modal iframe inside the LearnWorlds tab** (`#vn-float-frame`), NOT a separate `window.open` window. Clicking the other tab leaves this recorder intact. Closing the recorder's X, reloading or navigating away does not: finish and post your note first. Unsaved audio lives in memory, not permanent storage.
+
+### Desktop computers
+
+- Switching browser tabs while recording deliberately does **not** pause recording. MediaRecorder captures the microphone independently of the waveform and UI timer. The timer uses timestamp differences (`Date.now()`), not the number of interval callbacks, and refreshes when you return after timer throttling.
+- Playback also keeps going in another tab; there is no visibility handler that pauses it. Close the player or press Pause to stop it.
+- Sleep, microphone interruption, browser suspension, a discarded tab or closing the browser are different from ordinary tab switching. A detected microphone interruption/browser freeze pauses or finalizes the current audio rather than silently continuing a broken stream. When active recording resumes, use the Resume button.
+- The 3-minute stop is checked by the browser timer and again when returning to the page. If the browser/OS freezes JavaScript completely, it cannot run a precise stop until it wakes; don't depend on the browser as an exact time limiter during sleep.
+
+### Phones and tablets
+
+- iOS and Android may suspend microphone recording when another app/tab takes over or the screen locks. To avoid silently missing words, we **proactively pause** when the recorder's document becomes hidden. It says: **“Paused because you left the page — tap Resume when you return.”** Returning never automatically restarts the microphone.
+- Your captured chunks stay in that recorder, so Resume continues the same note. If the browser has no pause API, it instead finishes the note as a preview. If a call has muted the microphone, Resume asks you to wait; if the microphone disconnected, Stop/Resume finalizes the captured portion.
+- Best-effort Screen Wake Lock is requested while actively recording, released on Pause/Stop/hide, and reacquired when appropriate. The iframe opts into `screen-wake-lock`. Browsers may deny it due to battery settings or host policy; it cannot prevent background suspension or OS tab eviction. Keep this tab open and foreground on a phone for uninterrupted recording.
+- Playback normally continues in the background, but phone OS/audio focus rules may pause it, especially during a call. Resume playback when you return. It cannot be guaranteed through a call, battery saver or process termination.
+
+### Using a live class in another tab
+
+On desktop, browsers usually allow a meeting and the recorder to use the microphone together. Permissions, browser, headset or call software may still cause conflicts; try a short test before class. On phones, calls commonly interrupt web microphone capture. Use headphones to avoid echo. Recording captures **your microphone**, not the meeting's audio from the other tab. Playing a voice note will not automatically send it to students — share the tab/system audio in the meeting if you want them to hear playback.
+
+References: [MDN: MediaRecorder timing and Safari/Android interruption caveats](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/dataavailable_event), [MDN: Screen Wake Lock and its limits](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API).

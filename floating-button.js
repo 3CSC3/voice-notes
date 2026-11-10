@@ -176,6 +176,7 @@
     "box-shadow:0 1px 3px rgba(26,31,54,.15);",
     "max-width:100%;",
     "}",
+    ".vn-voice-pill{min-height:44px!important;min-width:44px!important;touch-action:manipulation;}",
     ".vn-voice-pill:hover{filter:brightness(0.95);}",
     ".vn-voice-pill:focus-visible{outline:2px solid #fff;outline-offset:2px;box-shadow:0 0 0 4px " + cfg.buttonColor + ";}",
     ".vn-voice-pill__icon{font-size:0.75rem;line-height:1;}",
@@ -203,12 +204,19 @@
     "#vn-player-meta{margin:0.2rem 0 0;color:#5b6478;font-size:0.88rem;}",
     "#vn-player-close{",
     "appearance:none;border:none;background:#eef0f7;color:#1a1f36;",
-    "width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1.25rem;flex:0 0 auto;",
+    "width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:1.25rem;flex:0 0 auto;",
     "}",
     "#vn-player-close:hover{background:#e2e5ef;}",
-    "#vn-player-audio{width:100%;margin-top:0.35rem;}",
+    "#vn-player-audio{display:block!important;width:100%!important;min-height:54px!important;visibility:visible!important;opacity:1!important;margin-top:0.35rem;}",
+    "#vn-player-toggle{appearance:none!important;border:0!important;border-radius:999px;cursor:pointer;",
+    "display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px!important;min-width:110px;",
+    "padding:10px 20px;margin:8px 0 0;font:600 1rem system-ui,-apple-system,Segoe UI,Roboto,sans-serif;touch-action:manipulation;",
+    "background:#f7a425!important;color:#fff!important;-webkit-text-fill-color:#fff!important;}",
+    "#vn-player-toggle span{color:#fff!important;-webkit-text-fill-color:#fff!important;}",
+    "#vn-player-toggle:disabled{opacity:.5;cursor:default;}",
     "#vn-player-status{margin:0.5rem 0 0;font-size:0.85rem;color:#5b6478;min-height:1.2em;}",
     "#vn-player-status.is-error{color:#dc2626;}",
+    "#vn-player-modal{max-height:calc(100vh - 32px);overflow:auto;}",
     /* Composer mic — toolbar icon size (~24–32px), LearnWorlds-friendly */
     ".vn-composer-mic{",
     "appearance:none;border:none;cursor:pointer;",
@@ -316,7 +324,7 @@
     '<span id="vn-float-title"></span>' +
     '<button type="button" id="vn-float-close" aria-label="Close">×</button>' +
     "</div>" +
-    '<iframe id="vn-float-frame" title="Voice Notes" allow="microphone"></iframe>' +
+    '<iframe id="vn-float-frame" title="Voice Notes" allow="microphone; screen-wake-lock"></iframe>' +
     "</div>";
 
   var toast = document.createElement("div");
@@ -940,6 +948,7 @@
     '<button type="button" id="vn-player-close" aria-label="Close">×</button>' +
     "</div>" +
     '<audio id="vn-player-audio" controls preload="metadata"></audio>' +
+    '<button type="button" id="vn-player-toggle" aria-label="Play voice note" disabled><span aria-hidden="true">▶</span><span>Play</span></button>' +
     '<p id="vn-player-status"></p>' +
     "</div>";
 
@@ -958,9 +967,65 @@
     var audio = document.getElementById("vn-player-audio");
     if (audio) {
       try { audio.pause(); } catch (_) {}
-      try { audio.removeAttribute("src"); audio.load(); } catch (_) {}
+      // Keep the source/position: opening this same note again resumes it.
+      syncPlaybackUi();
     }
   }
+
+  var currentPlayerNote = null;
+
+  function matchesCurrentNote(id, src) {
+    if (!currentPlayerNote) return false;
+    if (id && currentPlayerNote.id) return id === currentPlayerNote.id;
+    return !!src && src === currentPlayerNote.audioUrl;
+  }
+
+  function syncPlaybackUi() {
+    var audio = playerOverlay.querySelector("#vn-player-audio");
+    var playing = !!audio && !audio.paused && !audio.ended;
+    var toggle = playerOverlay.querySelector("#vn-player-toggle");
+    toggle.disabled = !currentPlayerNote || !audio.getAttribute("src");
+    toggle.querySelector("span:first-child").textContent = playing ? "❚❚" : "▶";
+    toggle.querySelector("span:last-child").textContent = playing ? "Pause" : "Play";
+    toggle.setAttribute("aria-label", playing ? "Pause voice note" : "Play voice note");
+    var pills = document.querySelectorAll(".vn-voice-pill");
+    for (var i = 0; i < pills.length; i++) {
+      var pill = pills[i];
+      var active = matchesCurrentNote(pill.getAttribute("data-vn-play-id"), pill.getAttribute("data-vn-play-src"));
+      var on = active && playing;
+      var icon = pill.querySelector(".vn-voice-pill__icon");
+      if (icon && icon.textContent !== (on ? "❚❚" : "▶")) icon.textContent = on ? "❚❚" : "▶";
+      var label = pill.querySelector(".vn-voice-pill__label");
+      pill.setAttribute("aria-label", (on ? "Pause " : "Play ") + (label ? label.textContent : "voice note"));
+    }
+  }
+
+  function playCurrentAudio() {
+    var audio = playerOverlay.querySelector("#vn-player-audio");
+    var statusEl = playerOverlay.querySelector("#vn-player-status");
+    if (!currentPlayerNote || !audio.getAttribute("src")) return;
+    if (audio.ended) audio.currentTime = 0;
+    var promise = audio.play();
+    if (promise && promise.catch) promise.catch(function () {
+      statusEl.textContent = "Press Play to listen.";
+      syncPlaybackUi();
+    });
+  }
+
+  function toggleCurrentAudio() {
+    var audio = playerOverlay.querySelector("#vn-player-audio");
+    if (audio.paused || audio.ended) playCurrentAudio();
+    else audio.pause();
+    syncPlaybackUi();
+  }
+
+  playerOverlay.querySelector("#vn-player-toggle").addEventListener("click", toggleCurrentAudio);
+  ["play", "pause", "ended", "emptied", "error"].forEach(function (event) {
+    playerOverlay.querySelector("#vn-player-audio").addEventListener(event, function () {
+      if (event === "play") playerOverlay.querySelector("#vn-player-status").textContent = "";
+      syncPlaybackUi();
+    });
+  });
 
   function openPlayerPopup(note) {
     mountPlayerChrome();
@@ -969,6 +1034,13 @@
     var metaEl = document.getElementById("vn-player-meta");
     var statusEl = document.getElementById("vn-player-status");
     var audio = document.getElementById("vn-player-audio");
+    ov.removeAttribute("hidden");
+    // The same pill is a real play/pause toggle, not a restart-from-zero button.
+    if (note && matchesCurrentNote(note.id, note.audioUrl) && audio.getAttribute("src")) {
+      toggleCurrentAudio();
+      return;
+    }
+    audio.pause();
     titleEl.textContent = (note && note.title) || "Voice note";
     var bits = [];
     if (note && note.name) bits.push(note.name);
@@ -976,7 +1048,9 @@
     metaEl.textContent = bits.join(" · ");
     statusEl.textContent = "";
     statusEl.className = "";
-    ov.removeAttribute("hidden");
+    currentPlayerNote = null;
+    audio.removeAttribute("src");
+    syncPlaybackUi();
     if (!note || !note.audioUrl) {
       statusEl.textContent = "Could not load this voice note.";
       statusEl.className = "is-error";
@@ -987,13 +1061,10 @@
       statusEl.className = "is-error";
       return;
     }
+    currentPlayerNote = note;
     audio.src = note.audioUrl;
-    var playPromise = audio.play();
-    if (playPromise && playPromise.catch) {
-      playPromise.catch(function () {
-        statusEl.textContent = "Press play to listen.";
-      });
-    }
+    syncPlaybackUi();
+    playCurrentAudio();
   }
 
   playerOverlay.addEventListener("click", function (e) {
@@ -1048,10 +1119,11 @@
       e.stopPropagation();
       var id = btn.getAttribute("data-vn-play-id") || parsed.id;
       var src = btn.getAttribute("data-vn-play-src") || parsed.src;
+      if (matchesCurrentNote(id, src)) { openPlayerPopup(currentPlayerNote); return; }
       btn.querySelector(".vn-voice-pill__label").textContent = "Loading…";
       resolveNote(id, src).then(function (note) {
         btn.querySelector(".vn-voice-pill__label").textContent = pillLabel(note || noteHint);
-        openPlayerPopup(note || { title: "Voice note", audioUrl: src });
+        openPlayerPopup(note || { id: id, title: "Voice note", audioUrl: src });
       });
     });
     // Prefetch meta for nicer label when we have supabase / src
@@ -1064,6 +1136,7 @@
       if (note.audioUrl && /^https?:/i.test(note.audioUrl)) {
         btn.setAttribute("data-vn-play-src", note.audioUrl);
       }
+      syncPlaybackUi();
     });
     return btn;
   }
@@ -1101,7 +1174,7 @@
       e.preventDefault();
       e.stopPropagation();
       resolveNote(parsed.id, parsed.src).then(function (note) {
-        openPlayerPopup(note || { title: "Voice note", audioUrl: parsed.src });
+        openPlayerPopup(note || { id: parsed.id, title: "Voice note", audioUrl: parsed.src });
       });
     });
 

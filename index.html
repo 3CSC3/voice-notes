@@ -24,6 +24,7 @@
       <div class="status-row">
         <div id="recIndicator" class="rec-dot" hidden></div>
         <span id="timer" class="timer" aria-live="polite">0:00</span>
+        <span id="pausedState" class="paused-state" role="status" hidden>Paused</span>
         <span id="maxHint" class="hint">Max 3:00</span>
       </div>
 
@@ -49,6 +50,9 @@
         </button>
       </div>
       <div class="actions" id="actionsRecording" hidden>
+        <button type="button" id="btnPause" class="btn btn-primary" aria-label="Pause recording" hidden>
+          <span class="btn-icon" aria-hidden="true">❚❚</span> <span id="pauseLabel">Pause</span>
+        </button>
         <button type="button" id="btnStop" class="btn btn-danger">
           <span class="btn-icon" aria-hidden="true">■</span> Stop
         </button>

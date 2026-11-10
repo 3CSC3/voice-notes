@@ -34,6 +34,9 @@
   const actionsRecording = document.getElementById("actionsRecording");
   const actionsPreview = document.getElementById("actionsPreview");
   const btnRecord = document.getElementById("btnRecord");
+  const btnPause = document.getElementById("btnPause");
+  const pauseLabel = document.getElementById("pauseLabel");
+  const pausedState = document.getElementById("pausedState");
   const btnStop = document.getElementById("btnStop");
   const btnRerecord = document.getElementById("btnRerecord");
   const btnPost = document.getElementById("btnPost");
@@ -76,10 +79,43 @@
   let chunks = [];
   let blob = null;
   let objectUrl = null;
-  let startedAt = 0;
+  // Timestamp differences, never interval ticks: stays accurate when background timers throttle.
+  let activeSince = null;
+  let recordedMs = 0;
   let timerId = null;
   let elapsedSec = 0;
   let mimeType = "";
+  let pauseReason = "";
+  let finishNotice = "";
+  let wakeLock = null;
+  let wakeRequestPending = false;
+  const mobileRecorder = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "") ||
+    (/Macintosh/.test(navigator.userAgent || "") && navigator.maxTouchPoints > 1);
+
+  function releaseWakeLock() {
+    if (wakeLock) {
+      const lock = wakeLock;
+      wakeLock = null;
+      try { lock.release().catch(() => {}); } catch (_) {}
+    }
+  }
+
+  async function requestWakeLock() {
+    if (!navigator.wakeLock || !navigator.wakeLock.request || wakeLock || wakeRequestPending ||
+        document.hidden || !mediaRecorder || mediaRecorder.state !== "recording") return;
+    wakeRequestPending = true;
+    try {
+      const lock = await navigator.wakeLock.request("screen");
+      if (document.hidden || !mediaRecorder || mediaRecorder.state !== "recording") {
+        await lock.release();
+      } else {
+        wakeLock = lock;
+        lock.addEventListener("release", () => { if (wakeLock === lock) wakeLock = null; });
+      }
+    } catch (_) {
+      // Optional: the browser, host iframe policy or battery saver may refuse it.
+    } finally { wakeRequestPending = false; }
+  }
 
   function setMsg(text, kind) {
     recorderMsg.textContent = text || "";
@@ -140,14 +176,118 @@
     }
   }
 
+  function recordedTimeMs() {
+    return recordedMs + (activeSince === null ? 0 : Math.max(0, Date.now() - activeSince));
+  }
+
   function updateTimerDisplay() {
-    elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+    elapsedSec = Math.min(MAX_SECONDS, Math.floor(recordedTimeMs() / 1000));
     timerEl.textContent = formatTime(elapsedSec);
-    if (elapsedSec >= MAX_SECONDS && mediaRecorder && mediaRecorder.state === "recording") {
+    if (elapsedSec >= MAX_SECONDS && mediaRecorder && mediaRecorder.state !== "inactive") {
       stopRecording();
       setMsg("Reached the 3-minute limit — recording stopped.", "ok");
     }
   }
+
+  function pausedUi(paused) {
+    pausedState.hidden = !paused;
+    recIndicator.classList.toggle("is-paused", paused);
+    waveform.classList.toggle("paused", paused);
+    pauseLabel.textContent = paused ? "Resume" : "Pause";
+    btnPause.querySelector(".btn-icon").textContent = paused ? "▶" : "❚❚";
+    btnPause.setAttribute("aria-label", paused ? "Resume recording" : "Pause recording");
+  }
+
+  function onRecorderPaused() {
+    if (!mediaRecorder || mediaRecorder.state !== "paused") return;
+    if (activeSince !== null) {
+      recordedMs += Math.max(0, Date.now() - activeSince);
+      activeSince = null;
+    }
+    stopTimer();
+    releaseWakeLock();
+    updateTimerDisplay();
+    pausedUi(true);
+    setMsg(pauseReason || "Paused — nothing is being recorded. Resume when you're ready, or Stop to finish.");
+  }
+
+  function onRecorderResumed() {
+    if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+    if (activeSince === null) activeSince = Date.now();
+    pauseReason = "";
+    pausedUi(false);
+    requestWakeLock();
+    setMsg("Recording…");
+    if (!timerId) timerId = setInterval(updateTimerDisplay, 250);
+  }
+
+  function toggleRecordingPause() {
+    if (!mediaRecorder || mediaRecorder.state === "inactive") return;
+    try {
+      if (mediaRecorder.state === "paused") {
+        const tracks = mediaStream ? mediaStream.getAudioTracks() : [];
+        if (!tracks.length || tracks.every(t => t.readyState === "ended")) {
+          finishNotice = "The microphone disconnected. Your recorded audio is ready to preview — start a new note to continue.";
+          stopRecording();
+          return;
+        }
+        if (tracks.some(t => t.muted)) {
+          setMsg("The microphone is temporarily unavailable (another app or call may be using it). Return here and tap Resume when it is available, or Stop to keep this note.", "error");
+          return;
+        }
+        if (mobileRecorder && document.hidden) return;
+        mediaRecorder.resume();
+        onRecorderResumed(); // some browsers change state now; events handle others
+      } else {
+        updateTimerDisplay();
+        if (mediaRecorder.state !== "recording") return;
+        pauseReason = "";
+        mediaRecorder.pause();
+        onRecorderPaused();
+      }
+    } catch (err) {
+      // Old browsers may expose the method without implementing pause.
+      // Never strand a paused note: Stop still finishes it.
+      if (mediaRecorder.state !== "paused") btnPause.hidden = true;
+      setMsg("This browser couldn't pause/resume. You can still Stop to finish the note.", "error");
+    }
+  }
+
+  function pauseForInterruption(message) {
+    if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+    pauseReason = message;
+    try {
+      if (typeof mediaRecorder.pause !== "function" || typeof mediaRecorder.resume !== "function") throw new Error("No pause support");
+      mediaRecorder.pause();
+      onRecorderPaused();
+      // Flush what is available; keep using the SAME recorder/chunks on Resume.
+      try { mediaRecorder.requestData(); } catch (_) {}
+    } catch (_) {
+      // Older browsers without pause: finalize, don't silently lose this note.
+      finishNotice = "Recording stopped because it was interrupted. Your recorded audio is ready to preview; record another note to continue.";
+      stopRecording();
+    }
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      releaseWakeLock();
+      if (mobileRecorder) {
+        // Proactively pause BEFORE iOS/Android can suspend capture. Never auto-resume.
+        pauseForInterruption("Paused because you left the page — tap Resume when you return. Your recorded audio is kept here.");
+      }
+      // Desktop: deliberately keep recording; switching tabs is allowed.
+    } else {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") updateTimerDisplay();
+      requestWakeLock();
+    }
+  });
+
+  // Chromium may freeze an inactive page. This is a best-effort safeguard, not a
+  // promise against the OS killing a tab. No beforeunload handler that blocks navigation.
+  document.addEventListener("freeze", () => {
+    pauseForInterruption("Paused because the browser suspended this page — tap Resume when you return.");
+  });
 
   async function startRecording() {
     setMsg("");
@@ -175,19 +315,45 @@
     }
 
     chunks = [];
+    pauseReason = "";
+    finishNotice = "";
     try {
       mediaRecorder = new MediaRecorder(mediaStream, mimeType ? { mimeType } : undefined);
     } catch (err) {
       mediaRecorder = new MediaRecorder(mediaStream);
     }
 
+    pausedUi(false);
+    btnPause.hidden = typeof mediaRecorder.pause !== "function" || typeof mediaRecorder.resume !== "function";
+    mediaStream.getAudioTracks().forEach(track => {
+      track.addEventListener("mute", () => {
+        pauseForInterruption("Paused because the microphone was interrupted — tap Resume when it is available again, or Stop to keep this note.");
+      });
+      track.addEventListener("ended", () => {
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          finishNotice = "The microphone disconnected. Your recorded audio is ready to preview.";
+          stopRecording();
+        }
+      });
+    });
+    mediaRecorder.onpause = onRecorderPaused;
+    mediaRecorder.onresume = onRecorderResumed;
     mediaRecorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) chunks.push(e.data);
     };
 
     mediaRecorder.onstop = () => {
+      // Also handle a recorder that stops itself (e.g. microphone disconnected).
+      if (activeSince !== null) {
+        recordedMs += Math.max(0, Date.now() - activeSince);
+        activeSince = null;
+      }
+      elapsedSec = Math.min(MAX_SECONDS, Math.floor(recordedMs / 1000));
+      timerEl.textContent = formatTime(elapsedSec);
       stopTracks();
       stopTimer();
+      releaseWakeLock();
+      pausedUi(false);
       recIndicator.hidden = true;
       waveform.classList.remove("active");
 
@@ -202,13 +368,14 @@
         setMsg("Recording was too short. Try again.", "error");
         btnPost.disabled = true;
       } else {
-        setMsg("Preview your note, then post to get a shareable link.", "ok");
+        setMsg(finishNotice || "Preview your note, then post to get a shareable link.", "ok");
         btnPost.disabled = false;
       }
     };
 
     mediaRecorder.start(250);
-    startedAt = Date.now();
+    recordedMs = 0;
+    activeSince = Date.now();
     elapsedSec = 0;
     timerEl.textContent = "0:00";
     recIndicator.hidden = false;
@@ -216,21 +383,40 @@
     showActions("recording");
     setMsg("Recording…");
     timerId = setInterval(updateTimerDisplay, 250);
+    requestWakeLock();
+    // Mic permission may have resolved after the person already switched apps.
+    if (mobileRecorder && document.hidden) {
+      pauseForInterruption("Paused because you left the page — tap Resume when you return. Your recorded audio is kept here.");
+    }
   }
 
   function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-      mediaRecorder.stop();
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      if (activeSince !== null) {
+        recordedMs += Math.max(0, Date.now() - activeSince);
+        activeSince = null;
+      }
+      stopTimer();
+      releaseWakeLock();
+      mediaRecorder.stop(); // valid both during recording and while paused
     }
   }
 
   function resetToIdle() {
     stopTimer();
-    if (mediaRecorder && mediaRecorder.state === "recording") {
+    releaseWakeLock();
+    pauseReason = "";
+    finishNotice = "";
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
       mediaRecorder.onstop = null;
+      mediaRecorder.onpause = null;
+      mediaRecorder.onresume = null;
       try { mediaRecorder.stop(); } catch (_) {}
     }
     stopTracks();
+    activeSince = null;
+    recordedMs = 0;
+    pausedUi(false);
     clearPreview();
     recIndicator.hidden = true;
     waveform.classList.remove("active");
@@ -429,6 +615,7 @@
 
   btnRecord.addEventListener("click", startRecording);
   btnStop.addEventListener("click", stopRecording);
+  btnPause.addEventListener("click", toggleRecordingPause);
   btnRerecord.addEventListener("click", () => {
     resetToIdle();
     startRecording();

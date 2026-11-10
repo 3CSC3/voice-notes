@@ -352,3 +352,16 @@ body {
   .timer { font-size: 1.5rem; }
   .link-row { flex-direction: column; }
 }
+
+/* Recorder pause state: frozen bars, steady dot, unmistakable status. */
+.paused-state { color: #9a5b00; background: #fff3dc; border-radius: 999px; padding: .2rem .55rem; font-size: .85rem; font-weight: 700; }
+.rec-dot.is-paused { animation: none; background: #f7a425; }
+.waveform.paused { opacity: .45; }
+.waveform.paused span { animation-play-state: paused; }
+#btnPause, .player-toggle {
+  background: #f7a425 !important; color: #fff !important;
+  -webkit-text-fill-color: #fff !important; min-height: 48px; min-width: 100px;
+}
+#btnPause .btn-icon, .player-toggle .btn-icon { color: #fff; font-size: 1rem; }
+.player-toggle { margin: .6rem 0; }
+.player-card audio, audio.preview { display: block; min-height: 54px; }

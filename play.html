@@ -55,6 +55,26 @@
     card.appendChild(h);
     card.appendChild(meta);
     card.appendChild(audio);
+    // A large, explicit control alongside the native audio controls (easy to tap).
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "btn player-toggle";
+    function sync() {
+      const playing = !audio.paused && !audio.ended;
+      toggle.innerHTML = '<span class="btn-icon" aria-hidden="true">' + (playing ? "❚❚" : "▶") + '</span><span>' + (playing ? "Pause" : "Play") + '</span>';
+      toggle.setAttribute("aria-label", playing ? "Pause voice note" : "Play voice note");
+    }
+    toggle.addEventListener("click", function () {
+      if (audio.paused || audio.ended) {
+        if (audio.ended) audio.currentTime = 0;
+        const p = audio.play();
+        if (p && p.catch) p.catch(sync);
+      } else audio.pause();
+    });
+    ["play", "pause", "ended", "emptied", "error"].forEach(function (ev) { audio.addEventListener(ev, sync); });
+    sync();
+    card.appendChild(toggle);
+
   }
 
   function fail(msg) {

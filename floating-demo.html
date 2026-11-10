@@ -12,6 +12,8 @@
       --card: #fff;
       --line: #e7e5e4;
       --accent: #f7a425;
+      --share: #e83e8c;
+      --tool: #57534e;
     }
     * { box-sizing: border-box; }
     body {
@@ -39,10 +41,10 @@
       font-size: 0.95rem;
     }
     nav a.active { color: var(--ink); font-weight: 600; }
-    main { max-width: 720px; margin: 0 auto; padding: 1.5rem 1.1rem 7rem; }
+    main { max-width: 720px; margin: 0 auto; padding: 1.5rem 1.1rem 5rem; }
     h1 { margin: 0 0 0.35rem; font-size: 1.6rem; }
     .lede { color: var(--muted); margin: 0 0 1.25rem; }
-    .composer, .comment-box, .post {
+    .composer, .comment-box, .post, .reply-box {
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -50,45 +52,81 @@
       margin-bottom: 1rem;
       box-shadow: 0 2px 8px rgba(28,25,23,.04);
     }
-    .composer label, .comment-box label {
+    .composer label, .comment-box label, .reply-box label {
       display: block;
       font-weight: 700;
       margin-bottom: 0.45rem;
       font-size: 0.95rem;
     }
-    #postComposer {
+    /* LearnWorlds-like grey rounded composer */
+    .lw-editor {
       min-height: 88px;
       border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 0.75rem 0.85rem;
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
       outline: none;
-      background: #fafafa;
+      background: #f3f4f6;
+      color: var(--ink);
     }
-    #postComposer:focus {
+    .lw-editor:focus {
+      background: #fff;
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(247,164,37,.28);
-      background: #fff;
     }
-    #postComposer:empty:before {
+    .lw-editor:empty:before {
       content: attr(data-placeholder);
-      color: #a8a29e;
+      color: #9ca3af;
     }
-    #commentBox {
+    textarea.lw-editor {
       width: 100%;
-      min-height: 72px;
       font: inherit;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 0.75rem 0.85rem;
       resize: vertical;
-      outline: none;
-      background: #fafafa;
+      min-height: 72px;
     }
-    #commentBox:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(247,164,37,.28);
-      background: #fff;
+    /* Toolbar under the box: icons + pink Share */
+    .lw-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.15rem;
+      margin-top: 0.55rem;
+      flex-wrap: wrap;
     }
+    .lw-tool {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--tool);
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+    .lw-tool:hover { background: #f5f5f4; }
+    .lw-divider {
+      width: 1px;
+      height: 22px;
+      background: var(--line);
+      margin: 0 0.35rem;
+    }
+    .lw-share {
+      appearance: none;
+      border: none;
+      margin-left: auto;
+      background: var(--share);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 0.45rem 1rem;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .lw-share:hover { filter: brightness(0.95); }
     .post strong { display: block; margin-bottom: 0.35rem; }
     .post .body { white-space: pre-wrap; word-break: break-word; }
     .post a { color: #9a3412; }
@@ -101,17 +139,25 @@
       color: #7c2d12;
       font-size: 0.92rem;
     }
-    .send {
-      margin-top: 0.65rem;
+    #addReply {
       appearance: none;
-      border: none;
-      background: var(--accent);
-      color: #1a1f36;
+      border: 1px dashed var(--line);
+      background: #fff;
+      color: var(--ink);
       font: inherit;
-      font-weight: 700;
-      padding: 0.55rem 1rem;
-      border-radius: 999px;
+      font-weight: 600;
+      padding: 0.65rem 1rem;
+      border-radius: 12px;
       cursor: pointer;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+    #searchBox {
+      width: 140px;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font: inherit;
     }
   </style>
 </head>
@@ -120,58 +166,123 @@
     <div class="brand">School <span>Community</span></div>
     <nav>
       <a href="#">Home</a>
-      <a class="active" href="/community">Community</a>
+      <a class="active" href="/social">Community</a>
       <a href="#">Courses</a>
+      <input id="searchBox" type="search" placeholder="Search…" aria-label="Search" />
     </nav>
   </header>
   <main>
     <h1>Community</h1>
-    <p class="lede">Simulated LearnWorlds community: contenteditable post composer + comment textarea. Click the mic, record, post — the share link should land in the field you were editing.</p>
+    <p class="lede">Simulated LearnWorlds composer: grey box + toolbar (Aa, emoji, @, image, file, poll, AI, Share). The orange mic should appear in the toolbar next to Share.</p>
 
-    <section class="composer">
-      <label for="postComposer">Write a post</label>
-      <div id="postComposer" contenteditable="true" role="textbox" aria-multiline="true"
-           data-placeholder="Share something with the community…"></div>
-      <button type="button" class="send" id="btnPostSend">Send post</button>
+    <section class="composer" id="postCard">
+      <label>Write a post</label>
+      <div id="postComposer" class="lw-editor" contenteditable="true" role="textbox" aria-multiline="true"
+           data-placeholder="Type something or click on the stars button to write"></div>
+      <div class="lw-toolbar" aria-label="Post tools">
+        <button type="button" class="lw-tool" title="Formatting" aria-label="Formatting">Aa</button>
+        <button type="button" class="lw-tool" title="Emoji" aria-label="Emoji">☺</button>
+        <button type="button" class="lw-tool" title="Mention" aria-label="Mention">@</button>
+        <button type="button" class="lw-tool" title="Image" aria-label="Image">🖼</button>
+        <button type="button" class="lw-tool" title="File" aria-label="File">📄</button>
+        <span class="lw-divider" aria-hidden="true"></span>
+        <button type="button" class="lw-tool" title="Poll" aria-label="Poll">📊</button>
+        <button type="button" class="lw-tool" title="AI" aria-label="AI">✦</button>
+        <button type="button" class="lw-share">share</button>
+      </div>
     </section>
 
-    <section class="comment-box">
+    <section class="comment-box" id="commentCard">
       <label for="commentBox">Write a comment</label>
-      <textarea id="commentBox" placeholder="Add a comment…"></textarea>
-      <button type="button" class="send" id="btnCommentSend">Send comment</button>
+      <textarea id="commentBox" class="lw-editor" placeholder="Write a comment…"></textarea>
+      <div class="lw-toolbar" aria-label="Comment tools">
+        <button type="button" class="lw-tool" title="Emoji" aria-label="Emoji">☺</button>
+        <button type="button" class="lw-tool" title="Mention" aria-label="Mention">@</button>
+        <button type="button" class="lw-tool" title="Image" aria-label="Image">🖼</button>
+        <button type="button" class="lw-tool" title="File" aria-label="File">📄</button>
+        <button type="button" class="lw-share">share</button>
+      </div>
     </section>
+
+    <button type="button" id="addReply">+ Add reply box (dynamic)</button>
+    <div id="replyMount"></div>
 
     <article class="post" id="samplePost">
       <strong>Ana</strong>
-      <div class="body">
-        Here’s my reflection from this week —
+      <div class="body" id="postBodyAnchor">
+        Short link (anchor) —
         <a id="sampleVoiceLink" href="#">voice link placeholder</a>
       </div>
     </article>
 
+    <article class="post" id="plainPost">
+      <strong>João</strong>
+      <div class="body" id="postBodyPlain">
+        Plain-text URL in the post body (no anchor tag):
+        PLAIN_URL_PLACEHOLDER
+      </div>
+    </article>
+
+    <article class="post" id="legacyPost">
+      <strong>Legacy</strong>
+      <div class="body" id="postBodyLegacy">
+        Old long link with src= —
+        <a id="legacyVoiceLink" href="#">legacy</a>
+      </div>
+    </article>
+
     <p class="hint">
-      Tip: focus the post box or comment box first, then tap the orange mic.
-      Path matching uses <code>floating-demo</code> for this page. On LearnWorlds, use <code>/social</code>.
+      Orange mics sit in each toolbar (inline mode). Search box above should <strong>not</strong> get a mic.
+      Path pattern: <code>floating-demo</code>. On LearnWorlds set <code>pathPattern: "/social"</code>.
     </p>
   </main>
 
   <script>
-    // Point sample link at a demo play URL (enhanced after a note exists, or with src=)
     (function () {
-      var play = new URL("play.html", location.href);
-      play.searchParams.set("id", "demo-sample");
-      // No src yet — enhancement will no-op until a real note is posted, or we seed IndexedDB below
-      document.getElementById("sampleVoiceLink").href = play.href;
-      document.getElementById("sampleVoiceLink").textContent = play.href;
+      var shortPlay = new URL("play.html", location.href);
+      shortPlay.searchParams.set("id", "9ead3147-37b3-4a9e-a9ae-43811ad73c30");
+      document.getElementById("sampleVoiceLink").href = shortPlay.href;
+      document.getElementById("sampleVoiceLink").textContent = shortPlay.href;
+
+      var plain = document.getElementById("postBodyPlain");
+      if (plain) plain.innerHTML = plain.innerHTML.replace("PLAIN_URL_PLACEHOLDER", shortPlay.href);
+
+      var legacy = new URL("play.html", location.href);
+      legacy.searchParams.set("id", "9ead3147-37b3-4a9e-a9ae-43811ad73c30");
+      legacy.searchParams.set("src", "https://onbxwzgiunkyjamsdzge.supabase.co/storage/v1/object/public/voice-notes/9ead3147-37b3-4a9e-a9ae-43811ad73c30.webm");
+      document.getElementById("legacyVoiceLink").href = legacy.href;
+      document.getElementById("legacyVoiceLink").textContent = legacy.href;
+
+      document.getElementById("addReply").addEventListener("click", function () {
+        var mount = document.getElementById("replyMount");
+        mount.innerHTML = "";
+        var sec = document.createElement("section");
+        sec.className = "reply-box";
+        sec.innerHTML =
+          '<label>Reply</label>' +
+          '<div class="lw-editor" contenteditable="true" role="textbox" data-placeholder="Write a reply…"></div>' +
+          '<div class="lw-toolbar" aria-label="Reply tools">' +
+          '<button type="button" class="lw-tool" title="Emoji" aria-label="Emoji">☺</button>' +
+          '<button type="button" class="lw-tool" title="Mention" aria-label="Mention">@</button>' +
+          '<button type="button" class="lw-tool" title="File" aria-label="File">📄</button>' +
+          '<button type="button" class="lw-share">share</button>' +
+          "</div>";
+        mount.appendChild(sec);
+      });
     })();
 
     window.VOICE_NOTES_FLOAT = {
       appUrl: new URL("index.html", window.location.href).href,
       pathPattern: "floating-demo",
       buttonColor: "#f7a425",
+      iconColor: "#ffffff",
       userName: "Catarina",
       title: "Voice Notes",
-      enhancePosts: true
+      enhancePosts: true,
+      mode: "inline",
+      showFloatingFallback: false,
+      supabaseUrl: "https://onbxwzgiunkyjamsdzge.supabase.co",
+      supabaseAnonKey: "sb_publishable_hS8__OkycZB2Fz9DIIkwTQ_aheJcNLV"
     };
   </script>
   <script src="floating-button.js" defer></script>

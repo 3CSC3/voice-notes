@@ -1,25 +1,24 @@
 <!--
-  LearnWorlds: paste into Site custom code → Body (logged in)
-  Path: Website → Design → Edit Website → Site → Site custom code
-  Docs: https://support.learnworlds.com/support/solutions/articles/12000075682-general-overview-custom-code
-        https://support.learnworlds.com/support/solutions/articles/12000082908-how-to-add-custom-code-in-your-learnworlds-school
-
-  Built-in community/Social page slug is "social".
-  Liquid conditionals ({% %}) are available on the Learning Center plan.
-  Replace APP_URL with your hosted Voice Notes folder URL (no trailing slash),
-  e.g. https://YOU.github.io/voice-notes
+  LearnWorlds: Site custom code → Body (logged in)
+  Website → Design → Edit Website → Site → Site custom code
 -->
 
 {% if REQUEST.SLUG == "social" or REQUEST.PATH contains "/social" or REQUEST.PATH contains "/community" %}
 <script>
   window.VOICE_NOTES_FLOAT = {
-    appUrl: "APP_URL/index.html",
+    appUrl: "https://3csc3.github.io/voice-notes/index.html",
     pathPattern: "*",
     buttonColor: "#f7a425",
+    iconColor: "#ffffff",
     userName: "{{USER.NAME}}",
     title: "Voice Notes",
-    enhancePosts: true
+    enhancePosts: true,
+    mode: "inline",
+    showFloatingFallback: false,
+    /* Needed so ▶ Voice note pills can load audio by id on LearnWorlds pages */
+    supabaseUrl: "https://onbxwzgiunkyjamsdzge.supabase.co",
+    supabaseAnonKey: "sb_publishable_hS8__OkycZB2Fz9DIIkwTQ_aheJcNLV"
   };
 </script>
-<script src="APP_URL/floating-button.js" defer></script>
+<script src="https://3csc3.github.io/voice-notes/floating-button.js" defer></script>
 {% endif %}
