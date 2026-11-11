@@ -93,7 +93,7 @@
 
   if (!pathMatches()) return;
   window.__vnFloatInstalled = true;
-  var micStatus = window.__vnMicStatus = { version: "2026-11-10-desktop", loaded: true, composers: 0, visibleMics: 0, lastError: "" };
+  var micStatus = window.__vnMicStatus = { version: "2026-11-11-feedback", loaded: true, composers: 0, visibleMics: 0, lastError: "" };
 
   function appOrigin() {
     try {
@@ -104,20 +104,20 @@
     }
   }
 
-  function buildAppSrc() {
+  function buildAppSrc(draftTitle) {
     var url = (cfg.appUrl || "").trim();
     if (!url) {
       try { url = new URL("index.html", window.location.href).href; }
       catch (_) { url = "index.html"; }
     }
     var name = (cfg.userName || "").trim();
-    if (!name) return url;
     try {
       var u = new URL(url, window.location.href);
-      u.searchParams.set("name", name);
+      if (name) u.searchParams.set("name", name);
+      if (draftTitle) u.searchParams.set("title", draftTitle);
       return u.href;
     } catch (_) {
-      return url + (url.indexOf("?") >= 0 ? "&" : "?") + "name=" + encodeURIComponent(name);
+      return url;
     }
   }
 
@@ -140,7 +140,7 @@
     "#vn-float-btn[hidden],.vn-composer-mic[hidden]{display:none!important;}",
     "#vn-float-overlay{",
     "position:fixed;inset:0;background:rgba(15,23,42,.55);",
-    "z-index:" + (Number(cfg.zIndex) + 1) + ";",
+    "z-index:" + (Number(cfg.zIndex) + 3) + ";",
     "display:flex;align-items:center;justify-content:center;",
     "padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right))",
     " max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));",
@@ -166,7 +166,7 @@
     "#vn-float-frame{flex:1 1 auto;width:100%;border:0;background:#f4f6fb;}",
     "#vn-float-toast{",
     "position:fixed;left:50%;bottom:max(88px,env(safe-area-inset-bottom));",
-    "transform:translateX(-50%);z-index:" + (Number(cfg.zIndex) + 2) + ";",
+    "transform:translateX(-50%);z-index:" + (Number(cfg.zIndex) + 4) + ";",
     "background:#1a1f36;color:#fff;padding:0.7rem 1rem;border-radius:999px;",
     "font:600 0.9rem system-ui,-apple-system,Segoe UI,Roboto,sans-serif;",
     "box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center;",
@@ -193,37 +193,44 @@
     "padding:0!important;margin:-1px!important;overflow:hidden!important;",
     "clip:rect(0,0,0,0)!important;border:0!important;white-space:nowrap!important;",
     "}",
-    /* Same-page popup player */
-    "#vn-player-overlay{",
-    "position:fixed;inset:0;background:rgba(15,23,42,.55);",
-    "z-index:" + (Number(cfg.zIndex) + 3) + ";",
-    "display:flex;align-items:center;justify-content:center;",
-    "padding:16px;",
-    "}",
+    /* Non-blocking docked player: no full-screen backdrop, page stays usable. */
+    "#vn-player-overlay{position:fixed;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));",
+    "bottom:max(12px,env(safe-area-inset-bottom));z-index:" + (Number(cfg.zIndex) + 1) + ";pointer-events:none;}",
     "#vn-player-overlay[hidden]{display:none!important;}",
-    "#vn-player-modal{",
-    "background:#fff;border-radius:16px;width:min(400px,100%);",
-    "padding:1.1rem 1.15rem 1.2rem;box-shadow:0 24px 64px rgba(0,0,0,.35);",
-    "font:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1f36;",
-    "}",
-    "#vn-player-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:0.75rem;}",
-    "#vn-player-title{font-weight:700;font-size:1.05rem;margin:0;}",
-    "#vn-player-meta{margin:0.2rem 0 0;color:#5b6478;font-size:0.88rem;}",
-    "#vn-player-close{",
-    "appearance:none;border:none;background:#eef0f7;color:#1a1f36;",
-    "width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:1.25rem;flex:0 0 auto;",
-    "}",
-    "#vn-player-close:hover{background:#e2e5ef;}",
-    "#vn-player-audio{display:block!important;width:100%!important;min-height:54px!important;visibility:visible!important;opacity:1!important;margin-top:0.35rem;}",
-    "#vn-player-toggle{appearance:none!important;border:0!important;border-radius:999px;cursor:pointer;",
-    "display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px!important;min-width:110px;",
-    "padding:10px 20px;margin:8px 0 0;font:600 1rem system-ui,-apple-system,Segoe UI,Roboto,sans-serif;touch-action:manipulation;",
+    "#vn-player-modal{pointer-events:auto;box-sizing:border-box;margin:0 auto;width:min(850px,100%);",
+    "background:#fff;border:1px solid #f7d9a7;border-top:3px solid #f7a425;border-radius:14px;padding:10px 12px;",
+    "box-shadow:0 8px 36px rgba(15,23,42,.24);font:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1f36;",
+    "display:grid;grid-template-columns:48px minmax(0,1fr) auto 44px;gap:6px 10px;align-items:center;}",
+    "#vn-player-details{min-width:0;}",
+    "#vn-player-title{font-weight:700;font-size:.95rem;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}",
+    "#vn-player-meta{margin:.15rem 0 0;color:#5b6478;font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}",
+    "#vn-player-toggle,#vn-player-reply,#vn-player-close{appearance:none!important;border:0!important;cursor:pointer;",
+    "display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;min-width:44px;border-radius:999px;padding:8px 12px;",
+    "font:600 .85rem system-ui,-apple-system,Segoe UI,Roboto,sans-serif;touch-action:manipulation;",
     "background:#f7a425!important;color:#fff!important;-webkit-text-fill-color:#fff!important;}",
-    "#vn-player-toggle span{color:#fff!important;-webkit-text-fill-color:#fff!important;}",
-    "#vn-player-toggle:disabled{opacity:.5;cursor:default;}",
-    "#vn-player-status{margin:0.5rem 0 0;font-size:0.85rem;color:#5b6478;min-height:1.2em;}",
+    "#vn-player-toggle{min-height:48px;padding:8px;}",
+    "#vn-player-toggle .vn-player-toggle-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);}",
+    "#vn-player-toggle span,#vn-player-reply span{color:#fff!important;-webkit-text-fill-color:#fff!important;}",
+    "#vn-player-reply svg{width:18px;height:18px;fill:#fff!important;flex:none;}",
+    "#vn-player-close{font-size:1.25rem;padding:8px;}",
+    "#vn-player-toggle:disabled,#vn-player-reply:disabled{opacity:.5;cursor:default;}",
+    "#vn-player-seek-row{grid-column:1/-1;display:flex;align-items:center;gap:10px;min-height:28px;}",
+    "#vn-player-seek{appearance:auto!important;flex:1;min-width:0;width:auto;height:28px;padding:0;margin:0;accent-color:#f7a425;cursor:pointer;}",
+    "#vn-player-time{font-size:.78rem;color:#5b6478;font-variant-numeric:tabular-nums;white-space:nowrap;}",
+    "#vn-player-audio{display:none!important;}",
+    "#vn-player-status{grid-column:1/-1;margin:0;font-size:.8rem;color:#5b6478;}",
+    "#vn-player-status:empty{display:none;}",
     "#vn-player-status.is-error{color:#dc2626;}",
-    "#vn-player-modal{max-height:calc(100vh - 32px);overflow:auto;}",
+    "#vn-float-overlay.vn-with-player{padding-bottom:calc(var(--vn-feedback-player-height,110px) + 20px);}",
+    "#vn-float-overlay.vn-with-player #vn-float-modal{height:min(780px,calc(100dvh - var(--vn-feedback-player-height,110px) - 40px));max-height:calc(100dvh - var(--vn-feedback-player-height,110px) - 40px);}",
+    "@media(max-width:600px){",
+    "#vn-player-overlay{top:max(8px,env(safe-area-inset-top));bottom:auto;left:8px;right:8px;}",
+    "#vn-player-modal{grid-template-columns:44px minmax(0,1fr) auto 44px;gap:4px 6px;padding:8px;}",
+    "#vn-player-reply{padding:8px;font-size:.8rem;}",
+    "#vn-player-reply span{display:none;}#vn-player-reply:after{content:'Reply';}",
+    "#vn-player-toggle{min-height:44px;}#vn-player-title{font-size:.85rem;}",
+    "#vn-float-overlay.vn-with-player{padding-bottom:max(12px,env(safe-area-inset-bottom));padding-top:calc(var(--vn-feedback-player-height,110px) + env(safe-area-inset-top) + 20px);}",
+    "}",
     /* Composer mic — toolbar icon size (~24–32px), LearnWorlds-friendly */
     ".vn-composer-mic{",
     "appearance:none;border:none;cursor:pointer;",
@@ -352,6 +359,8 @@
   var titleEl = null;
   var lastFocus = null;
   var toastTimer = null;
+  var savedPageOverflow = null;
+  var recorderGeneration = 0;
 
   function ensureEls() {
     frame = overlay.querySelector("#vn-float-frame");
@@ -369,8 +378,14 @@
     }, 3500);
   }
 
-  function openModal(forEditable) {
+  function openModal(forEditable, draftTitle) {
     ensureEls();
+    toast.hidden = true;
+    if (toastTimer) clearTimeout(toastTimer);
+    recorderGeneration++;
+    // Listening and recording take turns. Do not change the source or playhead.
+    try { pausePlayerForRecording(); } catch (_) {}
+    insertionTarget = null;
     if (forEditable) {
       insertionTarget = forEditable;
       lastEditable = forEditable;
@@ -379,18 +394,25 @@
       rememberFocus(document.activeElement);
     }
     lastFocus = document.activeElement;
-    if (frame) frame.src = buildAppSrc();
+    if (frame) frame.src = buildAppSrc(draftTitle);
+    overlay.classList.toggle("vn-with-player", !!playerOverlay && !playerOverlay.hidden);
     overlay.removeAttribute("hidden");
+    if (savedPageOverflow === null) savedPageOverflow = document.documentElement.style.overflow;
     document.documentElement.style.overflow = "hidden";
     if (closeBtn) closeBtn.focus();
+    try { syncPlaybackUi(); } catch (_) {}
   }
 
   function closeModal() {
     overlay.setAttribute("hidden", "");
-    document.documentElement.style.overflow = "";
+    recorderGeneration++;
+    document.documentElement.style.overflow = savedPageOverflow === null ? "" : savedPageOverflow;
+    savedPageOverflow = null;
     if (frame) {
       try { frame.src = "about:blank"; } catch (_) {}
     }
+    // Feedback ends with the student's note STILL paused at the same position.
+    try { syncPlaybackUi(); } catch (_) {}
   }
 
   function insertIntoTextField(el, text) {
@@ -493,9 +515,9 @@
   }
 
   async function handleLinkMessage(link) {
-    closeModal();
     var inserted = insertLink(link);
     if (inserted) {
+      closeModal();
       showToast("Voice link inserted — press Send when ready");
       var el = insertionTarget || lastEditable;
       if (el && el.focus) {
@@ -507,7 +529,10 @@
     var copied = await copyFallback(link);
     showToast(copied
       ? "Link copied — paste it into your post"
-      : "Could not insert — copy the link from the recorder");
+      : "Copy the link shown in the recorder, then paste it into your reply");
+    // With no suitable composer, KEEP the link/result screen open for manual copy.
+    // Closing its iframe here would destroy the only accessible copy on browsers
+    // that deny cross-origin clipboard writes.
     if (lastFocus && lastFocus.focus) {
       try { lastFocus.focus(); } catch (_) {}
     }
@@ -730,6 +755,26 @@
     return id;
   }
 
+  function openRecorderForComposer(editable, draftTitle) {
+    var target = editable ? actualComposer(editable) : null;
+    if (!target && editable) {
+      try { editable.click(); } catch (_) {} // activate placeholder, NEVER Share
+      target = actualComposer(editable);
+    }
+    if (target) rememberFocus(target);
+    openModal(target, draftTitle);
+    var generation = recorderGeneration;
+    if (!target && editable) {
+      [80, 250, 600].forEach(function (delay) {
+        setTimeout(function () {
+          if (generation !== recorderGeneration || overlay.hidden) return;
+          var real = actualComposer(editable);
+          if (real) { insertionTarget = real; rememberFocus(real); }
+        }, delay);
+      });
+    }
+  }
+
   function makeMicButton(editable) {
     var id = ensureComposerId(editable);
     var b = document.createElement("button");
@@ -746,25 +791,7 @@
     b.addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
-      var target = actualComposer(editable);
-      if (!target) {
-        // This is the collapsed desktop placeholder: activate the actual editor
-        // first. This NEVER clicks Share or submits a post.
-        try { editable.click(); } catch (_) {}
-        target = actualComposer(editable);
-      }
-      if (target) rememberFocus(target);
-      insertionTarget = target;
-      openModal(target);
-      if (!target) {
-        // Some frameworks mount the editor on the next render, not synchronously.
-        [80, 250, 600].forEach(function (delay) {
-          setTimeout(function () {
-            var real = actualComposer(editable);
-            if (real) { insertionTarget = real; rememberFocus(real); }
-          }, delay);
-        });
-      }
+      openRecorderForComposer(editable);
     });
     return b;
   }
@@ -1044,21 +1071,20 @@
       });
   }
 
-  // ---- Popup player ----
+  // ---- Non-blocking mini-player ----
   var playerOverlay = document.createElement("div");
   playerOverlay.id = "vn-player-overlay";
   playerOverlay.setAttribute("hidden", "");
-  playerOverlay.setAttribute("role", "presentation");
   playerOverlay.innerHTML =
-    '<div id="vn-player-modal" role="dialog" aria-modal="true" aria-labelledby="vn-player-title">' +
-    '<div id="vn-player-header">' +
-    '<div><h2 id="vn-player-title">Voice note</h2><p id="vn-player-meta"></p></div>' +
-    '<button type="button" id="vn-player-close" aria-label="Close">×</button>' +
-    "</div>" +
-    '<audio id="vn-player-audio" controls preload="metadata"></audio>' +
-    '<button type="button" id="vn-player-toggle" aria-label="Play voice note" disabled><span aria-hidden="true">▶</span><span>Play</span></button>' +
-    '<p id="vn-player-status"></p>' +
-    "</div>";
+    '<section id="vn-player-modal" role="region" aria-label="Voice note player">' +
+    '<audio id="vn-player-audio" preload="metadata"></audio>' +
+    '<button type="button" id="vn-player-toggle" aria-label="Play voice note" disabled><span aria-hidden="true">▶</span><span class="vn-player-toggle-label">Play</span></button>' +
+    '<div id="vn-player-details"><h2 id="vn-player-title">Voice note</h2><p id="vn-player-meta"></p></div>' +
+    '<button type="button" id="vn-player-reply" aria-label="Reply with voice" title="Pause and record your feedback" disabled>' + MIC_SVG + '<span>Reply with voice</span></button>' +
+    '<button type="button" id="vn-player-close" aria-label="Close voice note player">×</button>' +
+    '<div id="vn-player-seek-row"><input id="vn-player-seek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Seek voice note" disabled><span id="vn-player-time">0:00 / 0:00</span></div>' +
+    '<p id="vn-player-status" role="status"></p>' +
+    '</section>';
 
   function mountPlayerChrome() {
     if (!document.getElementById("vn-player-overlay")) {
@@ -1072,6 +1098,7 @@
     var ov = document.getElementById("vn-player-overlay");
     if (!ov) return;
     ov.setAttribute("hidden", "");
+    restorePlayerSpace();
     var audio = document.getElementById("vn-player-audio");
     if (audio) {
       try { audio.pause(); } catch (_) {}
@@ -1081,6 +1108,107 @@
   }
 
   var currentPlayerNote = null;
+  var currentPlayerContext = null;
+  var dockPadding = null;
+
+  function reservePlayerSpace() {
+    if (!playerOverlay || playerOverlay.hidden || !document.body) return;
+    var h = Math.ceil(playerOverlay.getBoundingClientRect().height) + 16;
+    var phone = window.matchMedia ? window.matchMedia("(max-width:600px)").matches : window.innerWidth <= 600;
+    if (!dockPadding) {
+      var cs = window.getComputedStyle(document.body);
+      dockPadding = { top: document.body.style.getPropertyValue("padding-top"), topPriority: document.body.style.getPropertyPriority("padding-top"),
+        bottom: document.body.style.getPropertyValue("padding-bottom"), bottomPriority: document.body.style.getPropertyPriority("padding-bottom"),
+        topPx: parseFloat(cs.paddingTop) || 0, bottomPx: parseFloat(cs.paddingBottom) || 0 };
+    }
+    var top = phone ? (dockPadding.topPx + h) + "px" : dockPadding.top;
+    var bottom = phone ? dockPadding.bottom : (dockPadding.bottomPx + h) + "px";
+    if (document.body.style.paddingTop !== top) document.body.style.setProperty("padding-top", top, phone ? "important" : dockPadding.topPriority);
+    if (document.body.style.paddingBottom !== bottom) document.body.style.setProperty("padding-bottom", bottom, phone ? dockPadding.bottomPriority : "important");
+    if (document.documentElement.style.getPropertyValue("--vn-feedback-player-height") !== h + "px") {
+      document.documentElement.style.setProperty("--vn-feedback-player-height", h + "px");
+    }
+  }
+
+  function restorePlayerSpace() {
+    if (!dockPadding || !document.body) return;
+    document.body.style.setProperty("padding-top", dockPadding.top, dockPadding.topPriority);
+    document.body.style.setProperty("padding-bottom", dockPadding.bottom, dockPadding.bottomPriority);
+    document.documentElement.style.removeProperty("--vn-feedback-player-height");
+    dockPadding = null;
+    overlay.classList.remove("vn-with-player");
+  }
+
+  function keepComposerClear(target) {
+    if (!target || !isEditable(target) || !playerOverlay || playerOverlay.hidden || !overlay.hidden) return;
+    var a = target.getBoundingClientRect(), b = playerOverlay.getBoundingClientRect();
+    if (a.top < b.bottom && a.bottom > b.top && a.left < b.right && a.right > b.left) {
+      try { target.scrollIntoView({ block: "center", behavior: "auto" }); } catch (_) {}
+    }
+  }
+  window.addEventListener("resize", reservePlayerSpace);
+  document.addEventListener("focusin", function (e) { setTimeout(function () { keepComposerClear(e.target); }, 0); }, true);
+  try { if (window.ResizeObserver) new ResizeObserver(reservePlayerSpace).observe(playerOverlay); } catch (_) {}
+
+  function pausePlayerForRecording() {
+    var audio = playerOverlay && playerOverlay.querySelector("#vn-player-audio");
+    if (audio) audio.pause();
+    if (playerOverlay) syncPlaybackUi();
+  }
+
+  function updatePlayerTime() {
+    var audio = playerOverlay.querySelector("#vn-player-audio");
+    var known = Number(currentPlayerNote && currentPlayerNote.duration) || 0;
+    var duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : known;
+    var position = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+    var seek = playerOverlay.querySelector("#vn-player-seek");
+    seek.max = Math.max(duration, position, 0);
+    seek.value = position;
+    seek.disabled = !currentPlayerNote || !duration || !overlay.hidden;
+    seek.setAttribute("aria-valuetext", formatDuration(position) + " of " + formatDuration(duration));
+    playerOverlay.querySelector("#vn-player-time").textContent = formatDuration(position) + " / " + formatDuration(duration);
+  }
+
+  function findFeedbackComposer(context) {
+    if (!context || !document.contains(context)) return null;
+    var all = collectComposers();
+    var semantic = 'article, [data-post-id], [data-comment-id], [data-activity-id], .post, .comment, .reply, .community-post, .social-post, [data-testid*="post" i], [class*="post-card" i], [class*="comment-card" i]';
+    var node = context.parentElement;
+    for (var depth = 0; node && node !== document.body && depth < 12; depth++, node = node.parentElement) {
+      // Do not wander across a feed into another student's post. Prefer an explicit
+      // post/comment boundary; otherwise only consider a small single-note wrapper.
+      var named = node.matches && node.matches(semantic);
+      var pills = node.querySelectorAll(".vn-voice-pill");
+      if (!named && pills.length > 1) break;
+      var candidates = all.filter(function (el) { return node.contains(el) && !inVoiceUi(el); });
+      if (candidates.length) {
+        if (lastEditable && candidates.indexOf(lastEditable) !== -1) return lastEditable;
+        var origin = context.getBoundingClientRect();
+        candidates.sort(function (a, b) {
+          function score(el) {
+            var r = el.getBoundingClientRect();
+            var hint = (el.id || "") + " " + (el.getAttribute("placeholder") || "") + " " + (el.getAttribute("aria-label") || "") + " " + (el.className || "");
+            var comment = /comment|reply|respost|coment/i.test(hint) || !!el.closest('[class*="comment" i], [class*="reply" i]');
+            return Math.abs(r.top - origin.bottom) + (r.top < origin.top ? 200 : 0) - (comment ? 1000 : 0);
+          }
+          return score(a) - score(b);
+        });
+        return candidates[0];
+      }
+      if (named) break; // no composer in this post: use explicit last-focus/copy fallback
+    }
+    return null;
+  }
+
+  function replyWithVoice() {
+    pausePlayerForRecording();
+    var audio = playerOverlay.querySelector("#vn-player-audio");
+    var target = findFeedbackComposer(currentPlayerContext);
+    if (!target && lastEditable && document.contains(lastEditable) && isVisibleComposer(lastEditable)) target = lastEditable;
+    var draftTitle = "Feedback at " + formatDuration(audio.currentTime);
+    openRecorderForComposer(target, draftTitle);
+    if (!target) showToast("No reply box selected — your link will stay available to copy into a comment.");
+  }
 
   function matchesCurrentNote(id, src) {
     if (!currentPlayerNote) return false;
@@ -1092,7 +1220,9 @@
     var audio = playerOverlay.querySelector("#vn-player-audio");
     var playing = !!audio && !audio.paused && !audio.ended;
     var toggle = playerOverlay.querySelector("#vn-player-toggle");
-    toggle.disabled = !currentPlayerNote || !audio.getAttribute("src");
+    toggle.disabled = !currentPlayerNote || !audio.getAttribute("src") || !overlay.hidden;
+    playerOverlay.querySelector("#vn-player-reply").disabled = !currentPlayerNote || !overlay.hidden;
+    updatePlayerTime();
     toggle.querySelector("span:first-child").textContent = playing ? "❚❚" : "▶";
     toggle.querySelector("span:last-child").textContent = playing ? "Pause" : "Play";
     toggle.setAttribute("aria-label", playing ? "Pause voice note" : "Play voice note");
@@ -1112,6 +1242,7 @@
     var audio = playerOverlay.querySelector("#vn-player-audio");
     var statusEl = playerOverlay.querySelector("#vn-player-status");
     if (!currentPlayerNote || !audio.getAttribute("src")) return;
+    if (!overlay.hidden) { statusEl.textContent = "Finish or close your recording, then press Play to continue listening."; return; }
     if (audio.ended) audio.currentTime = 0;
     var promise = audio.play();
     if (promise && promise.catch) promise.catch(function () {
@@ -1129,9 +1260,21 @@
 
   try {
   playerOverlay.querySelector("#vn-player-toggle").addEventListener("click", toggleCurrentAudio);
+  playerOverlay.querySelector("#vn-player-reply").addEventListener("click", replyWithVoice);
+  playerOverlay.querySelector("#vn-player-seek").addEventListener("input", function (e) {
+    if (!overlay.hidden) return;
+    try { playerOverlay.querySelector("#vn-player-audio").currentTime = Number(e.target.value) || 0; } catch (_) {}
+    updatePlayerTime();
+  });
+  ["timeupdate", "durationchange", "loadedmetadata"].forEach(function (event) {
+    playerOverlay.querySelector("#vn-player-audio").addEventListener(event, updatePlayerTime);
+  });
   ["play", "pause", "ended", "emptied", "error"].forEach(function (event) {
     playerOverlay.querySelector("#vn-player-audio").addEventListener(event, function () {
-      if (event === "play") playerOverlay.querySelector("#vn-player-status").textContent = "";
+      if (event === "play") {
+        if (!overlay.hidden) { playerOverlay.querySelector("#vn-player-audio").pause(); return; }
+        playerOverlay.querySelector("#vn-player-status").textContent = "";
+      }
       syncPlaybackUi();
     });
   });
@@ -1140,7 +1283,7 @@
     console.warn("[voice-notes player] Audio controls unavailable; the recorder mic is still active.", err);
   }
 
-  function openPlayerPopup(note) {
+  function openPlayerPopup(note, context) {
     mountPlayerChrome();
     var ov = document.getElementById("vn-player-overlay");
     var titleEl = document.getElementById("vn-player-title");
@@ -1148,6 +1291,8 @@
     var statusEl = document.getElementById("vn-player-status");
     var audio = document.getElementById("vn-player-audio");
     ov.removeAttribute("hidden");
+    if (context) currentPlayerContext = context;
+    reservePlayerSpace();
     // The same pill is a real play/pause toggle, not a restart-from-zero button.
     if (note && matchesCurrentNote(note.id, note.audioUrl) && audio.getAttribute("src")) {
       toggleCurrentAudio();
@@ -1181,11 +1326,10 @@
   }
 
   playerOverlay.addEventListener("click", function (e) {
-    if (e.target === playerOverlay) closePlayerPopup();
     if (e.target && e.target.id === "vn-player-close") closePlayerPopup();
   });
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") {
+    if (e.key === "Escape" && !e.defaultPrevented && overlay.hidden) {
       var ov = document.getElementById("vn-player-overlay");
       if (ov && !ov.hasAttribute("hidden")) {
         e.preventDefault();
@@ -1232,11 +1376,11 @@
       e.stopPropagation();
       var id = btn.getAttribute("data-vn-play-id") || parsed.id;
       var src = btn.getAttribute("data-vn-play-src") || parsed.src;
-      if (matchesCurrentNote(id, src)) { openPlayerPopup(currentPlayerNote); return; }
+      if (matchesCurrentNote(id, src)) { openPlayerPopup(currentPlayerNote, btn); return; }
       btn.querySelector(".vn-voice-pill__label").textContent = "Loading…";
       resolveNote(id, src).then(function (note) {
         btn.querySelector(".vn-voice-pill__label").textContent = pillLabel(note || noteHint);
-        openPlayerPopup(note || { id: id, title: "Voice note", audioUrl: src });
+        openPlayerPopup(note || { id: id, title: "Voice note", audioUrl: src }, btn);
       });
     });
     // Prefetch meta for nicer label when we have supabase / src
@@ -1287,7 +1431,7 @@
       e.preventDefault();
       e.stopPropagation();
       resolveNote(parsed.id, parsed.src).then(function (note) {
-        openPlayerPopup(note || { id: parsed.id, title: "Voice note", audioUrl: parsed.src });
+        openPlayerPopup(note || { id: parsed.id, title: "Voice note", audioUrl: parsed.src }, anchor);
       });
     });
 

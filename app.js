@@ -60,6 +60,8 @@
 
   try {
     const params = new URLSearchParams(window.location.search || "");
+    const draftTitle = (params.get("title") || "").trim().slice(0, 80);
+    if (draftTitle) noteTitle.value = draftTitle;
     const fromUrl = (params.get("name") || "").trim();
     if (fromUrl) {
       displayName.value = fromUrl;
