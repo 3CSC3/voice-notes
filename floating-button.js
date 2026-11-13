@@ -93,7 +93,7 @@
 
   if (!pathMatches()) return;
   window.__vnFloatInstalled = true;
-  var micStatus = window.__vnMicStatus = { version: "2026-11-12-button-only", loaded: true, composers: 0, visibleMics: 0, lastError: "" };
+  var micStatus = window.__vnMicStatus = { version: "2026-11-13-listen-and-record", loaded: true, composers: 0, visibleMics: 0, lastError: "" };
 
   function appOrigin() {
     try {
@@ -217,7 +217,11 @@
     "#vn-player-toggle span,#vn-player-reply span{color:#fff!important;-webkit-text-fill-color:#fff!important;}",
     "#vn-player-reply svg{width:18px;height:18px;fill:#fff!important;flex:none;}",
     "#vn-player-close{font-size:1.25rem;padding:8px;}",
-    "#vn-player-toggle:disabled,#vn-player-reply:disabled{opacity:.5;cursor:default;}",
+    "#vn-player-toggle:disabled,#vn-player-reply:disabled,#vn-player-back:disabled{opacity:.5;cursor:default;}",
+    "#vn-player-back{appearance:none!important;border:0!important;cursor:pointer;flex:none;min-height:44px;min-width:56px;padding:6px 10px;border-radius:999px;",
+    "background:#f7a425!important;color:#fff!important;-webkit-text-fill-color:#fff!important;font:700 .8rem system-ui,-apple-system,Segoe UI,Roboto,sans-serif;touch-action:manipulation;}",
+    "#vn-player-back span{color:#fff!important;-webkit-text-fill-color:#fff!important;}",
+    "#vn-player-back:focus-visible,#vn-player-toggle:focus-visible,#vn-player-reply:focus-visible,#vn-player-close:focus-visible{outline:3px solid #1a1f36;outline-offset:2px;}",
     "#vn-player-seek-row{grid-column:1/-1;display:flex;align-items:center;gap:10px;min-height:28px;}",
     "#vn-player-seek{appearance:auto!important;flex:1;min-width:0;width:auto;height:28px;padding:0;margin:0;accent-color:#f7a425;cursor:pointer;}",
     "#vn-player-time{font-size:.78rem;color:#5b6478;font-variant-numeric:tabular-nums;white-space:nowrap;}",
@@ -493,6 +497,31 @@
     modal.style.top = p.y + "px";
     return p;
   }
+  // Keep the recorder off the student's mini-player (bottom on desktop, top on phones),
+  // without forgetting where the user parked it.
+  function avoidPlayerOverlap() {
+    var modal = recorderModal();
+    if (!modal || overlay.hidden || drag) return;
+    var pm = playerOverlay && !playerOverlay.hidden ? playerOverlay.querySelector("#vn-player-modal") : null;
+    if (!pm) {
+      if (modal.dataset.vnSquashed) { delete modal.dataset.vnSquashed; layoutRecorder(); }
+      return;
+    }
+    var r = modal.getBoundingClientRect(), p = pm.getBoundingClientRect();
+    if (!(r.right > p.left && r.left < p.right && r.bottom > p.top - 8 && r.top < p.bottom + 8)) return;
+    var vh = window.innerHeight, h = r.height, y;
+    if (p.top + p.height / 2 > vh / 2) {
+      // player docked at the bottom: recorder goes above it
+      y = p.top - 8 - h;
+      if (y < 8) { h = Math.max(120, p.top - 16); y = 8; }
+    } else {
+      // player docked at the top: recorder goes below it
+      y = p.bottom + 8;
+      if (y + h > vh - 8) { h = Math.max(120, vh - 8 - y); }
+    }
+    if (h !== r.height) { modal.style.height = Math.round(h) + "px"; modal.dataset.vnSquashed = "1"; }
+    modal.style.top = Math.round(y) + "px";
+  }
   function layoutRecorder() {
     if (overlay.hidden) return;
     var modal = recorderModal();
@@ -510,6 +539,7 @@
       p = defaultPosition(size.w, size.h);
     }
     placeRecorder(p.x, p.y);
+    avoidPlayerOverlap();
   }
   function saveRecorderPosition() {
     var modal = recorderModal();
@@ -544,6 +574,7 @@
     // Keep the bottom edge anchored so a bottom panel stays at the bottom.
     var p = placeRecorder(parseFloat(modal.style.left) || 0, oldBottom - size.h);
     if (p) saveRecorderPosition();
+    avoidPlayerOverlap();
   }
   function endDrag(save) {
     if (!drag) return;
@@ -553,6 +584,7 @@
     if (modal) modal.classList.remove("vn-dragging");
     drag = null;
     if (save) saveRecorderPosition();
+    avoidPlayerOverlap();
   }
   (function wirePanel() {
     var header = overlay.querySelector("#vn-float-header");
@@ -610,6 +642,7 @@
       var size = panelSize();
       modal.style.height = size.h + "px";
       if (placeRecorder(parseFloat(modal.style.left) || 0, oldBottom - size.h) && !drag) saveRecorderPosition();
+      avoidPlayerOverlap();
     });
   })();
 
@@ -1288,7 +1321,7 @@
     '<div id="vn-player-details"><h2 id="vn-player-title">Voice note</h2><p id="vn-player-meta"></p></div>' +
     '<button type="button" id="vn-player-reply" aria-label="Reply with voice" title="Pause and record your feedback" disabled>' + MIC_SVG + '<span>Reply with voice</span></button>' +
     '<button type="button" id="vn-player-close" aria-label="Close voice note player" title="Close">×</button>' +
-    '<div id="vn-player-seek-row"><input id="vn-player-seek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Position in voice note" disabled><span id="vn-player-time" aria-hidden="true">0:00 / 0:00</span></div>' +
+    '<div id="vn-player-seek-row"><button type="button" id="vn-player-back" title="Back 5 seconds" disabled><span aria-hidden="true">↺ 5s</span><span class="vn-sr-only">Back 5 seconds</span></button><input id="vn-player-seek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Position in voice note" disabled><span id="vn-player-time" aria-hidden="true">0:00 / 0:00</span></div>' +
     '<p id="vn-player-status" role="status"></p>' +
     '</section>';
 
@@ -1306,6 +1339,7 @@
     var focusWasInside = ov.contains(document.activeElement);
     ov.setAttribute("hidden", "");
     restorePlayerSpace();
+    avoidPlayerOverlap();
     if (focusWasInside) {
       var back = playerReturnFocus && document.contains(playerReturnFocus) ? playerReturnFocus : null;
       if (back && back.focus) { try { back.focus(); } catch (_) {} }
@@ -1360,7 +1394,28 @@
   }
   window.addEventListener("resize", reservePlayerSpace);
   document.addEventListener("focusin", function (e) { setTimeout(function () { keepComposerClear(e.target); }, 0); }, true);
-  try { if (window.ResizeObserver) new ResizeObserver(reservePlayerSpace).observe(playerOverlay); } catch (_) {}
+  try { if (window.ResizeObserver) new ResizeObserver(function () { reservePlayerSpace(); avoidPlayerOverlap(); }).observe(playerOverlay); } catch (_) {}
+
+  // ---- Listening + recording at the same time ----
+  var myRecordingState = "idle";
+  function pauseMyRecordingForPlayback() {
+    if (overlay.hidden || !frame || !frame.contentWindow) return;
+    try { frame.contentWindow.postMessage({ type: "voice-notes:pause-recording" }, appOrigin()); } catch (_) {}
+  }
+  window.addEventListener("message", function (event) {
+    var d = event.data;
+    if (!d || d.type !== "voice-notes:recording-state" || event.origin !== appOrigin()) return;
+    if (!frame || event.source !== frame.contentWindow) return;
+    myRecordingState = String(d.state || "");
+    if (myRecordingState === "recording") {
+      var a = playerOverlay.querySelector("#vn-player-audio");
+      if (a && !a.paused && !a.ended) {
+        a.pause();
+        announce("Student's note paused while you record.");
+      }
+      syncPlaybackUi();
+    }
+  });
 
   function pausePlayerForRecording() {
     var audio = playerOverlay && playerOverlay.querySelector("#vn-player-audio");
@@ -1396,7 +1451,7 @@
     var seek = playerOverlay.querySelector("#vn-player-seek");
     seek.max = Math.max(duration, position, 0);
     seek.value = position;
-    seek.disabled = !currentPlayerNote || !duration || !overlay.hidden;
+    seek.disabled = !currentPlayerNote || !duration;
     seek.setAttribute("aria-valuetext", spokenDuration(position) + " of " + spokenDuration(duration));
     playerOverlay.querySelector("#vn-player-time").textContent = formatDuration(position) + " / " + formatDuration(duration);
   }
@@ -1434,6 +1489,13 @@
 
   function replyWithVoice() {
     pausePlayerForRecording();
+    if (!overlay.hidden) {
+      // Recorder already open next to the player: just hand over to it.
+      var grip = overlay.querySelector("#vn-float-grip");
+      if (grip) { try { grip.focus(); } catch (_) {} }
+      announce("Student's note paused. Your recorder is open.");
+      return;
+    }
     var audio = playerOverlay.querySelector("#vn-player-audio");
     var target = findFeedbackComposer(currentPlayerContext);
     if (!target && lastEditable && document.contains(lastEditable) && isVisibleComposer(lastEditable)) target = lastEditable;
@@ -1452,8 +1514,11 @@
     var audio = playerOverlay.querySelector("#vn-player-audio");
     var playing = !!audio && !audio.paused && !audio.ended;
     var toggle = playerOverlay.querySelector("#vn-player-toggle");
-    toggle.disabled = !currentPlayerNote || !audio.getAttribute("src") || !overlay.hidden;
-    playerOverlay.querySelector("#vn-player-reply").disabled = !currentPlayerNote || !overlay.hidden;
+    // Listening and recording work side by side: nothing here is disabled by the recorder.
+    toggle.disabled = !currentPlayerNote || !audio.getAttribute("src");
+    playerOverlay.querySelector("#vn-player-reply").disabled = !currentPlayerNote;
+    var back = playerOverlay.querySelector("#vn-player-back");
+    if (back) back.disabled = !currentPlayerNote || !audio.getAttribute("src");
     updatePlayerTime();
     toggle.querySelector("span:first-child").textContent = playing ? "❚❚" : "▶";
     toggle.querySelector("span:last-child").textContent = playing ? "Pause" : "Play";
@@ -1474,7 +1539,8 @@
     var audio = playerOverlay.querySelector("#vn-player-audio");
     var statusEl = playerOverlay.querySelector("#vn-player-status");
     if (!currentPlayerNote || !audio.getAttribute("src")) return;
-    if (!overlay.hidden) { statusEl.textContent = "Finish or close your recording, then press Play to continue listening."; return; }
+    // If my recording is running, pause it first so the student's audio isn't captured.
+    if (!overlay.hidden) pauseMyRecordingForPlayback();
     if (audio.ended) audio.currentTime = 0;
     var promise = audio.play();
     if (promise && promise.catch) promise.catch(function () {
@@ -1493,8 +1559,13 @@
   try {
   playerOverlay.querySelector("#vn-player-toggle").addEventListener("click", toggleCurrentAudio);
   playerOverlay.querySelector("#vn-player-reply").addEventListener("click", replyWithVoice);
+  playerOverlay.querySelector("#vn-player-back").addEventListener("click", function () {
+    var a = playerOverlay.querySelector("#vn-player-audio");
+    try { a.currentTime = Math.max(0, (a.currentTime || 0) - 5); } catch (_) {}
+    updatePlayerTime();
+    announce("Back 5 seconds, " + spokenDuration(a.currentTime || 0));
+  });
   playerOverlay.querySelector("#vn-player-seek").addEventListener("input", function (e) {
-    if (!overlay.hidden) return;
     try { playerOverlay.querySelector("#vn-player-audio").currentTime = Number(e.target.value) || 0; } catch (_) {}
     updatePlayerTime();
   });
@@ -1504,7 +1575,7 @@
   ["play", "pause", "ended", "emptied", "error"].forEach(function (event) {
     playerOverlay.querySelector("#vn-player-audio").addEventListener(event, function () {
       if (event === "play") {
-        if (!overlay.hidden) { playerOverlay.querySelector("#vn-player-audio").pause(); return; }
+        if (!overlay.hidden) pauseMyRecordingForPlayback();
         playerOverlay.querySelector("#vn-player-status").textContent = "";
       }
       syncPlaybackUi();
@@ -1526,6 +1597,7 @@
     ov.removeAttribute("hidden");
     if (context) currentPlayerContext = context;
     reservePlayerSpace();
+    avoidPlayerOverlap();
     // The same pill is a real play/pause toggle, not a restart-from-zero button.
     if (note && matchesCurrentNote(note.id, note.audioUrl) && audio.getAttribute("src")) {
       toggleCurrentAudio();
@@ -1568,8 +1640,10 @@
     if (e.target && e.target.id === "vn-player-close") closePlayerPopup();
   });
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && !e.defaultPrevented && overlay.hidden) {
-      var ov = document.getElementById("vn-player-overlay");
+    var ovEl = document.getElementById("vn-player-overlay");
+    var inPlayer = !!(ovEl && ovEl.contains(document.activeElement));
+    if (e.key === "Escape" && !e.defaultPrevented && (overlay.hidden || inPlayer)) {
+      var ov = ovEl;
       if (ov && !ov.hasAttribute("hidden")) {
         e.preventDefault();
         closePlayerPopup();

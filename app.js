@@ -205,6 +205,7 @@
 
   function onRecorderPaused() {
     if (!mediaRecorder || mediaRecorder.state !== "paused") return;
+    tellParentState("paused");
     if (activeSince !== null) {
       recordedMs += Math.max(0, Date.now() - activeSince);
       activeSince = null;
@@ -216,8 +217,24 @@
     setMsg(pauseReason || "Paused — nothing is being recorded. Resume when you're ready, or Stop to finish.");
   }
 
+  // Tell the community page what my recorder is doing, so it can pause the
+  // student's note whenever I record (and never record her audio).
+  function tellParentState(state) {
+    try {
+      if (window.parent && window.parent !== window) window.parent.postMessage({ type: "voice-notes:recording-state", state }, "*");
+    } catch (_) {}
+  }
+  window.addEventListener("message", (event) => {
+    if (window.parent === window || event.source !== window.parent) return;
+    const d = event.data;
+    if (!d || d.type !== "voice-notes:pause-recording") return;
+    if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+    pauseForInterruption("Your recording paused while the student's note plays. Press Resume to keep recording.");
+  });
+
   function onRecorderResumed() {
     if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+    tellParentState("recording");
     if (activeSince === null) activeSince = Date.now();
     pauseReason = "";
     pausedUi(false);
@@ -387,6 +404,7 @@
     waveform.classList.add("active");
     showActions("recording");
     setMsg("Recording…");
+    tellParentState("recording");
     timerId = setInterval(updateTimerDisplay, 250);
     requestWakeLock();
     // Mic permission may have resolved after the person already switched apps.

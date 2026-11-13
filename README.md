@@ -248,3 +248,18 @@ The recorder that opens from the mic buttons is a floating panel. It does not bl
   - The timer is not read out every second.
   - Escape closes it when idle. It never throws away a recording you haven't posted.
   - When it closes, focus returns to the comment box.
+
+## Listen and record at the same time
+
+You can keep the student's mini-player and your recorder open together, on desktop and phone.
+- **Neither one locks the other.** While the recorder is open, the mini-player's Play/Pause, **↺ 5s** (back 5 seconds), position slider, Reply and Close, plus the ▶ buttons in posts, all keep working.
+- **No overlap.** The recorder never sits on top of the mini-player.
+  - Desktop: it goes above the mini-player at the bottom.
+  - Phones: it goes below the mini-player at the top.
+  - If your saved spot, or a spot you drag it to, would cover the player, it moves just clear of it (shrinking if needed). Your saved spot is kept.
+- **Audio takes turns, automatically:**
+  - Playing the student's note while you record pauses your recording, so her audio isn't picked up. It shows "Your recording paused while the student's note plays. Press Resume to keep recording."
+  - Pressing Record or Resume pauses the student's note ("Student's note paused while you record").
+  - Your recording never resumes by itself.
+- **Typical flow:** play → pause at the bit → **Reply with voice** → Record → play her note again / **↺ 5s** / drag the slider → Resume → Stop → **Post voice note** → Send.
+- **Keyboard.** Escape in the mini-player closes only the mini-player. Reply with voice, when the recorder is already open, pauses her note and moves focus to the recorder.
