@@ -93,7 +93,7 @@
 
   if (!pathMatches()) return;
   window.__vnFloatInstalled = true;
-  var micStatus = window.__vnMicStatus = { version: "2026-11-11-feedback", loaded: true, composers: 0, visibleMics: 0, lastError: "" };
+  var micStatus = window.__vnMicStatus = { version: "2026-11-12-button-only", loaded: true, composers: 0, visibleMics: 0, lastError: "" };
 
   function appOrigin() {
     try {
@@ -122,6 +122,14 @@
   }
 
   var accentInk = cfg.iconColor || "#ffffff";
+  // Readers only ever see the ▶ button: voice-note links/embeds outside editors are hidden
+  // by CSS straight away (no flash of the URL before the script swaps in the button).
+  var playBase = "";
+  try { playBase = new URL("play.html", new URL((cfg.appUrl || "").trim() || window.location.href, window.location.href)).href; } catch (_) {}
+  var NOT_IN_EDITOR = ':not([contenteditable]:not([contenteditable="false"]) *):not(.ql-editor *):not(.ProseMirror *):not([role="textbox"] *)';
+  var preHideCss = playBase
+    ? 'a[href^="' + playBase.replace(/["\\]/g, "") + '"]' + NOT_IN_EDITOR + ',iframe[src^="' + playBase.replace(/["\\]/g, "") + '"]' + NOT_IN_EDITOR + "{display:none!important;}"
+    : "";
   var style = document.createElement("style");
   style.textContent = [
     "#vn-float-btn{",
@@ -138,32 +146,31 @@
     "#vn-float-btn:focus-visible{outline:3px solid #fff;outline-offset:3px;box-shadow:0 0 0 6px " + cfg.buttonColor + ";}",
     "#vn-float-btn svg{width:26px;height:26px;display:block;}",
     "#vn-float-btn[hidden],.vn-composer-mic[hidden]{display:none!important;}",
-    "#vn-float-overlay{",
-    "position:fixed;inset:0;background:rgba(15,23,42,.55);",
-    "z-index:" + (Number(cfg.zIndex) + 3) + ";",
-    "display:flex;align-items:center;justify-content:center;",
-    "padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right))",
-    " max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));",
-    "}",
+    /* Non-blocking, movable recorder panel: no backdrop, page stays scrollable. */
+    "#vn-float-overlay{position:fixed;inset:0;z-index:" + (Number(cfg.zIndex) + 3) + ";pointer-events:none;background:transparent;}",
     "#vn-float-overlay[hidden]{display:none!important;}",
-    "#vn-float-modal{",
-    "background:#fff;border-radius:16px;width:min(560px,100%);",
-    "height:min(780px,92vh);max-height:92dvh;",
-    "display:flex;flex-direction:column;overflow:hidden;",
-    "box-shadow:0 24px 64px rgba(0,0,0,.35);",
-    "}",
-    "#vn-float-header{",
-    "flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;",
-    "gap:12px;padding:12px 14px;border-bottom:1px solid #e4e8f0;",
-    "font:600 1rem system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1f36;",
-    "}",
-    "#vn-float-close{",
-    "appearance:none;border:none;background:#eef0f7;color:#1a1f36;",
-    "width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1.25rem;line-height:1;",
-    "}",
-    "#vn-float-close:hover{background:#e2e5ef;}",
-    "#vn-float-close:focus-visible{outline:3px solid " + cfg.buttonColor + ";outline-offset:2px;}",
-    "#vn-float-frame{flex:1 1 auto;width:100%;border:0;background:#f4f6fb;}",
+    "#vn-float-modal{position:fixed;left:16px;top:16px;pointer-events:auto;box-sizing:border-box;",
+    "background:#fff;border-radius:16px;border:1px solid #f7d9a7;width:380px;height:600px;",
+    "display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 48px rgba(15,23,42,.32);}",
+    "#vn-float-header{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:6px 8px 6px 10px;",
+    "border-bottom:1px solid #e4e8f0;background:#fff8ec;cursor:move;touch-action:none;user-select:none;-webkit-user-select:none;",
+    "font:600 .95rem system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1f36;}",
+    "#vn-float-grip{appearance:none;border:0;background:transparent;color:#a16207;cursor:move;touch-action:none;",
+    "display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 4px;font:inherit;flex:1 1 auto;min-width:0;text-align:left;}",
+    "#vn-float-grip .vn-grip-dots{font-size:1.1rem;letter-spacing:-2px;color:#f7a425;}",
+    "#vn-float-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1a1f36;}",
+    "#vn-float-hint{font-weight:400;font-size:.75rem;color:#5b6478;white-space:nowrap;}",
+    "#vn-float-compact,#vn-float-close{appearance:none;border:none;background:#eef0f7;color:#1a1f36;flex:0 0 auto;",
+    "width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:1.15rem;line-height:1;}",
+    "#vn-float-compact:hover,#vn-float-close:hover{background:#e2e5ef;}",
+    "#vn-float-compact:focus-visible,#vn-float-close:focus-visible,#vn-float-grip:focus-visible{outline:3px solid " + cfg.buttonColor + ";outline-offset:2px;}",
+    ".vn-sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}",
+    "#vn-float-shield{position:absolute;inset:0;display:none;cursor:move;z-index:2;}",
+    "#vn-float-modal.vn-dragging #vn-float-shield{display:block;}",
+    "#vn-float-modal.vn-dragging iframe{pointer-events:none;}",
+    "#vn-float-modal.vn-dragging{box-shadow:0 24px 60px rgba(15,23,42,.42);opacity:.97;}",
+    "@media(max-width:600px){#vn-float-hint{display:none;}}",
+    "#vn-float-frame{flex:1 1 auto;width:100%;min-height:0;border:0;background:#f4f6fb;}",
     "#vn-float-toast{",
     "position:fixed;left:50%;bottom:max(88px,env(safe-area-inset-bottom));",
     "transform:translateX(-50%);z-index:" + (Number(cfg.zIndex) + 4) + ";",
@@ -188,11 +195,8 @@
     ".vn-voice-pill:focus-visible{outline:2px solid #fff;outline-offset:2px;box-shadow:0 0 0 4px " + cfg.buttonColor + ";}",
     ".vn-voice-pill__icon{font-size:0.75rem;line-height:1;}",
     ".vn-voice-pill__label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:14rem;}",
-    "a.vn-voice-link-hidden, .vn-voice-link-hidden{",
-    "position:absolute!important;width:1px!important;height:1px!important;",
-    "padding:0!important;margin:-1px!important;overflow:hidden!important;",
-    "clip:rect(0,0,0,0)!important;border:0!important;white-space:nowrap!important;",
-    "}",
+    "a.vn-voice-link-hidden,.vn-voice-link-hidden{display:none!important;}",
+    preHideCss,
     /* Non-blocking docked player: no full-screen backdrop, page stays usable. */
     "#vn-player-overlay{position:fixed;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));",
     "bottom:max(12px,env(safe-area-inset-bottom));z-index:" + (Number(cfg.zIndex) + 1) + ";pointer-events:none;}",
@@ -221,15 +225,12 @@
     "#vn-player-status{grid-column:1/-1;margin:0;font-size:.8rem;color:#5b6478;}",
     "#vn-player-status:empty{display:none;}",
     "#vn-player-status.is-error{color:#dc2626;}",
-    "#vn-float-overlay.vn-with-player{padding-bottom:calc(var(--vn-feedback-player-height,110px) + 20px);}",
-    "#vn-float-overlay.vn-with-player #vn-float-modal{height:min(780px,calc(100dvh - var(--vn-feedback-player-height,110px) - 40px));max-height:calc(100dvh - var(--vn-feedback-player-height,110px) - 40px);}",
     "@media(max-width:600px){",
     "#vn-player-overlay{top:max(8px,env(safe-area-inset-top));bottom:auto;left:8px;right:8px;}",
     "#vn-player-modal{grid-template-columns:44px minmax(0,1fr) auto 44px;gap:4px 6px;padding:8px;}",
     "#vn-player-reply{padding:8px;font-size:.8rem;}",
     "#vn-player-reply span{display:none;}#vn-player-reply:after{content:'Reply';}",
     "#vn-player-toggle{min-height:44px;}#vn-player-title{font-size:.85rem;}",
-    "#vn-float-overlay.vn-with-player{padding-bottom:max(12px,env(safe-area-inset-bottom));padding-top:calc(var(--vn-feedback-player-height,110px) + env(safe-area-inset-top) + 20px);}",
     "}",
     /* Composer mic — toolbar icon size (~24–32px), LearnWorlds-friendly */
     ".vn-composer-mic{",
@@ -331,25 +332,47 @@
   var overlay = document.createElement("div");
   overlay.id = "vn-float-overlay";
   overlay.setAttribute("hidden", "");
-  overlay.setAttribute("role", "presentation");
   overlay.innerHTML =
-    '<div id="vn-float-modal" role="dialog" aria-modal="true" aria-labelledby="vn-float-title">' +
-    '<div id="vn-float-header">' +
-    '<span id="vn-float-title"></span>' +
-    '<button type="button" id="vn-float-close" aria-label="Close">×</button>' +
+    '<div id="vn-float-modal" role="dialog" aria-modal="false" aria-label="Voice note recorder">' +
+    '<div id="vn-float-header" title="Drag to move">' +
+    '<button type="button" id="vn-float-grip">' +
+    '<span class="vn-grip-dots" aria-hidden="true">⠿</span><span id="vn-float-title"></span><span id="vn-float-hint">drag to move</span>' +
+    '<span class="vn-sr-only">. Use the arrow keys to move the recorder.</span></button>' +
+    '<button type="button" id="vn-float-compact" aria-pressed="false" aria-label="Make recorder smaller" title="Make smaller">–</button>' +
+    '<button type="button" id="vn-float-close" aria-label="Close recorder" title="Close">×</button>' +
     "</div>" +
-    '<iframe id="vn-float-frame" title="Voice Notes" allow="microphone; screen-wake-lock"></iframe>' +
+    '<div style="position:relative;flex:1 1 auto;display:flex;min-height:0;">' +
+    '<iframe id="vn-float-frame" title="Voice note recorder" allow="microphone; screen-wake-lock"></iframe>' +
+    '<div id="vn-float-shield" aria-hidden="true"></div>' +
+    "</div>" +
     "</div>";
+
+  // Permanent, visually hidden live region for screen-reader announcements.
+  var srStatus = document.createElement("div");
+  srStatus.id = "vn-sr-status";
+  srStatus.setAttribute("role", "status");
+  srStatus.setAttribute("aria-live", "polite");
+  srStatus.setAttribute("aria-atomic", "true");
+  srStatus.style.cssText = "position:fixed!important;left:-10000px!important;top:auto!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;";
+  var srTimer = null;
+  function announce(msg) {
+    if (!msg) return;
+    srStatus.textContent = "";
+    if (srTimer) clearTimeout(srTimer);
+    // Clear then set so repeated messages are still announced.
+    srTimer = setTimeout(function () { srStatus.textContent = msg; }, 60);
+  }
 
   var toast = document.createElement("div");
   toast.id = "vn-float-toast";
   toast.setAttribute("hidden", "");
-  toast.setAttribute("role", "status");
+  toast.setAttribute("aria-hidden", "true"); // announced via #vn-sr-status
 
   function mountChrome() {
     document.body.appendChild(floatBtn);
     document.body.appendChild(overlay);
     document.body.appendChild(toast);
+    document.body.appendChild(srStatus);
   }
   if (document.body) mountChrome();
   else document.addEventListener("DOMContentLoaded", mountChrome);
@@ -359,7 +382,6 @@
   var titleEl = null;
   var lastFocus = null;
   var toastTimer = null;
-  var savedPageOverflow = null;
   var recorderGeneration = 0;
 
   function ensureEls() {
@@ -372,6 +394,7 @@
   function showToast(msg) {
     toast.textContent = msg;
     toast.removeAttribute("hidden");
+    announce(msg);
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(function () {
       toast.setAttribute("hidden", "");
@@ -395,25 +418,200 @@
     }
     lastFocus = document.activeElement;
     if (frame) frame.src = buildAppSrc(draftTitle);
-    overlay.classList.toggle("vn-with-player", !!playerOverlay && !playerOverlay.hidden);
     overlay.removeAttribute("hidden");
-    if (savedPageOverflow === null) savedPageOverflow = document.documentElement.style.overflow;
-    document.documentElement.style.overflow = "hidden";
+    // Page stays scrollable: no scroll lock and no backdrop.
+    applyCompactUi();
+    layoutRecorder();
     if (closeBtn) closeBtn.focus();
+    announce("Voice note recorder opened. Press Tab to reach the Record button.");
     try { syncPlaybackUi(); } catch (_) {}
   }
 
-  function closeModal() {
+  function closeModal(restoreFocus) {
+    var hadFocus = overlay.contains(document.activeElement);
     overlay.setAttribute("hidden", "");
     recorderGeneration++;
-    document.documentElement.style.overflow = savedPageOverflow === null ? "" : savedPageOverflow;
-    savedPageOverflow = null;
+    endDrag(false);
     if (frame) {
       try { frame.src = "about:blank"; } catch (_) {}
     }
     // Feedback ends with the student's note STILL paused at the same position.
     try { syncPlaybackUi(); } catch (_) {}
+    if (restoreFocus || hadFocus) {
+      // Send keyboard / screen-reader focus back to where the user was.
+      var back = (insertionTarget && document.contains(insertionTarget) && insertionTarget) ||
+        (lastFocus && document.contains(lastFocus) && lastFocus) || null;
+      if (back && back.focus) { try { back.focus(); } catch (_) {} }
+      if (restoreFocus) announce("Recorder closed.");
+    }
   }
+
+  // ---- Movable / compact recorder panel ----
+  var COMPACT_KEY = "vn-recorder-compact-v1";
+  var compactMode = false;
+  var compactContentHeight = 0;
+  var drag = null;
+  function lsGet(key) { try { return JSON.parse(window.localStorage.getItem(key) || "null"); } catch (_) { return null; } }
+  function lsSet(key, val) { try { window.localStorage.setItem(key, JSON.stringify(val)); } catch (_) {} }
+  compactMode = lsGet(COMPACT_KEY) === true;
+  function phoneLayout() {
+    try { return window.matchMedia("(max-width:600px)").matches; } catch (_) { return window.innerWidth <= 600; }
+  }
+  function posKey() { return "vn-recorder-pos-v1-" + (phoneLayout() ? "phone" : "desktop"); }
+  function recorderModal() { return overlay.querySelector("#vn-float-modal"); }
+  function headerHeight() { var h = overlay.querySelector("#vn-float-header"); return h ? Math.ceil(h.getBoundingClientRect().height) || 53 : 53; }
+  function panelSize() {
+    var vw = window.innerWidth, vh = window.innerHeight, phone = phoneLayout();
+    var w = phone ? vw - 16 : Math.min(380, vw - 32);
+    var h;
+    if (compactMode) h = headerHeight() + (compactContentHeight || 190);
+    else h = phone ? Math.min(Math.round(vh * 0.62), 620) : Math.min(640, vh - 32);
+    return { w: Math.max(240, w), h: Math.max(120, Math.min(h, vh - 16)) };
+  }
+  function clampPosition(x, y, w, h) {
+    var m = 8;
+    return {
+      x: Math.round(Math.min(Math.max(m, x), Math.max(m, window.innerWidth - w - m))),
+      y: Math.round(Math.min(Math.max(m, y), Math.max(m, window.innerHeight - h - m)))
+    };
+  }
+  function defaultPosition(w, h) {
+    if (phoneLayout()) return { x: 8, y: window.innerHeight - h - 8 }; // bottom sheet; mini-player is at top
+    var bottomGap = 16;
+    try {
+      // Desktop mini-player docks at the bottom: start the panel just above it.
+      if (playerOverlay && !playerOverlay.hidden) bottomGap += Math.ceil(playerOverlay.getBoundingClientRect().height) + 8;
+    } catch (_) {}
+    return { x: window.innerWidth - w - 16, y: window.innerHeight - h - bottomGap };
+  }
+  function placeRecorder(x, y) {
+    var modal = recorderModal();
+    if (!modal) return null;
+    var w = modal.offsetWidth, h = modal.offsetHeight;
+    var p = clampPosition(x, y, w, h);
+    modal.style.left = p.x + "px";
+    modal.style.top = p.y + "px";
+    return p;
+  }
+  function layoutRecorder() {
+    if (overlay.hidden) return;
+    var modal = recorderModal();
+    if (!modal) return;
+    var size = panelSize();
+    modal.style.width = size.w + "px";
+    modal.style.height = size.h + "px";
+    var saved = lsGet(posKey());
+    var p;
+    if (saved && isFinite(saved.x) && isFinite(saved.y)) {
+      p = { x: saved.x, y: saved.y };
+      // A panel parked in the lower half keeps its bottom edge where it was.
+      if (isFinite(saved.h) && saved.y + saved.h / 2 > window.innerHeight / 2) p.y = saved.y + saved.h - size.h;
+    } else {
+      p = defaultPosition(size.w, size.h);
+    }
+    placeRecorder(p.x, p.y);
+  }
+  function saveRecorderPosition() {
+    var modal = recorderModal();
+    if (!modal) return;
+    lsSet(posKey(), { x: parseFloat(modal.style.left) || 0, y: parseFloat(modal.style.top) || 0, h: modal.offsetHeight });
+  }
+  function postCompactToFrame() {
+    try {
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage({ type: "voice-notes:compact", compact: compactMode }, appOrigin());
+    } catch (_) {}
+  }
+  function applyCompactUi() {
+    var btn = overlay.querySelector("#vn-float-compact");
+    if (btn) {
+      btn.textContent = compactMode ? "□" : "–";
+      btn.setAttribute("aria-pressed", compactMode ? "true" : "false");
+      btn.setAttribute("aria-label", compactMode ? "Make recorder bigger" : "Make recorder smaller");
+      btn.title = compactMode ? "Make bigger" : "Make smaller";
+    }
+    postCompactToFrame();
+  }
+  function setCompact(on) {
+    var modal = recorderModal();
+    var oldBottom = modal ? (parseFloat(modal.style.top) || 0) + modal.offsetHeight : 0;
+    compactMode = !!on;
+    lsSet(COMPACT_KEY, compactMode);
+    applyCompactUi();
+    if (!modal || overlay.hidden) return;
+    var size = panelSize();
+    modal.style.width = size.w + "px";
+    modal.style.height = size.h + "px";
+    // Keep the bottom edge anchored so a bottom panel stays at the bottom.
+    var p = placeRecorder(parseFloat(modal.style.left) || 0, oldBottom - size.h);
+    if (p) saveRecorderPosition();
+  }
+  function endDrag(save) {
+    if (!drag) return;
+    var modal = recorderModal();
+    var header = overlay.querySelector("#vn-float-header");
+    try { if (header && header.releasePointerCapture) header.releasePointerCapture(drag.id); } catch (_) {}
+    if (modal) modal.classList.remove("vn-dragging");
+    drag = null;
+    if (save) saveRecorderPosition();
+  }
+  (function wirePanel() {
+    var header = overlay.querySelector("#vn-float-header");
+    var modal = recorderModal();
+    if (!header || !modal) return;
+    header.addEventListener("pointerdown", function (e) {
+      if (e.button > 0) return;
+      if (e.target.closest && e.target.closest("#vn-float-compact, #vn-float-close")) return;
+      var r = modal.getBoundingClientRect();
+      drag = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top };
+      modal.classList.add("vn-dragging"); // shield covers the iframe so it can't steal moves
+      try { if (header.setPointerCapture) header.setPointerCapture(e.pointerId); } catch (_) {}
+      e.preventDefault();
+    });
+    header.addEventListener("pointermove", function (e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      placeRecorder(e.clientX - drag.dx, e.clientY - drag.dy);
+      e.preventDefault();
+    });
+    header.addEventListener("pointerup", function (e) { if (drag && e.pointerId === drag.id) endDrag(true); });
+    header.addEventListener("pointercancel", function (e) { if (drag && e.pointerId === drag.id) endDrag(true); });
+    header.addEventListener("lostpointercapture", function (e) { if (drag && e.pointerId === drag.id) endDrag(true); });
+    // Shield fallback (if pointer capture is unavailable)
+    var shield = overlay.querySelector("#vn-float-shield");
+    if (shield) {
+      shield.addEventListener("pointermove", function (e) { if (drag && e.pointerId === drag.id) placeRecorder(e.clientX - drag.dx, e.clientY - drag.dy); });
+      shield.addEventListener("pointerup", function (e) { if (drag && e.pointerId === drag.id) endDrag(true); });
+    }
+    var grip = overlay.querySelector("#vn-float-grip");
+    if (grip) grip.addEventListener("keydown", function (e) {
+      var step = e.shiftKey ? 60 : 20, dx = 0, dy = 0;
+      if (e.key === "ArrowLeft") dx = -step; else if (e.key === "ArrowRight") dx = step;
+      else if (e.key === "ArrowUp") dy = -step; else if (e.key === "ArrowDown") dy = step; else return;
+      e.preventDefault();
+      placeRecorder((parseFloat(modal.style.left) || 0) + dx, (parseFloat(modal.style.top) || 0) + dy);
+      saveRecorderPosition();
+      announce("Recorder moved");
+    });
+    var compactBtn = overlay.querySelector("#vn-float-compact");
+    if (compactBtn) compactBtn.addEventListener("click", function () {
+      setCompact(!compactMode);
+      announce(compactMode ? "Recorder made smaller" : "Recorder made bigger");
+    });
+    var fr = overlay.querySelector("#vn-float-frame");
+    if (fr) fr.addEventListener("load", postCompactToFrame);
+    window.addEventListener("resize", function () { if (!overlay.hidden) layoutRecorder(); });
+    window.addEventListener("message", function (event) {
+      var d = event.data;
+      if (!d || d.type !== "voice-notes:size" || event.origin !== appOrigin()) return;
+      if (!frame || event.source !== frame.contentWindow) return;
+      var h = Math.max(80, Math.min(1200, Number(d.height) || 0));
+      if (!compactMode || Math.abs(h - compactContentHeight) < 2) { compactContentHeight = h; return; }
+      var oldBottom = (parseFloat(modal.style.top) || 0) + modal.offsetHeight;
+      compactContentHeight = h;
+      var size = panelSize();
+      modal.style.height = size.h + "px";
+      if (placeRecorder(parseFloat(modal.style.left) || 0, oldBottom - size.h) && !drag) saveRecorderPosition();
+    });
+  })();
 
   function insertIntoTextField(el, text) {
     el.focus();
@@ -518,7 +716,7 @@
     var inserted = insertLink(link);
     if (inserted) {
       closeModal();
-      showToast("Voice link inserted — press Send when ready");
+      showToast("Voice note added to your comment — press Send when ready");
       var el = insertionTarget || lastEditable;
       if (el && el.focus) {
         try { el.focus(); } catch (_) {}
@@ -526,13 +724,12 @@
       scheduleEnhance();
       return;
     }
-    var copied = await copyFallback(link);
-    showToast(copied
-      ? "Link copied — paste it into your post"
-      : "Copy the link shown in the recorder, then paste it into your reply");
-    // With no suitable composer, KEEP the link/result screen open for manual copy.
-    // Closing its iframe here would destroy the only accessible copy on browsers
-    // that deny cross-origin clipboard writes.
+    // No comment box to put it in: keep the recorder open (the note is saved) and let
+    // the recorder offer "Add to comment" once a box is clicked. The URL is never shown.
+    showToast("Click into a comment box, then press “Add to comment” in the recorder");
+    try {
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage({ type: "voice-notes:insert-result", ok: false }, appOrigin());
+    } catch (_) {}
     if (lastFocus && lastFocus.focus) {
       try { lastFocus.focus(); } catch (_) {}
     }
@@ -541,15 +738,24 @@
   floatBtn.addEventListener("click", function () {
     openModal(null);
   });
+  // Clicking the page never closes the recorder (it would discard a recording).
   overlay.addEventListener("click", function (e) {
-    if (e.target === overlay) closeModal();
-    if (e.target && e.target.id === "vn-float-close") closeModal();
+    if (e.target && e.target.id === "vn-float-close") closeModal(true);
   });
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && !overlay.hasAttribute("hidden")) {
+    // Escape closes only when focus is in the recorder panel itself, so reading or
+    // typing on the page never discards a recording by accident.
+    if (e.key === "Escape" && !overlay.hasAttribute("hidden") && overlay.contains(document.activeElement)) {
       e.preventDefault();
-      closeModal();
+      closeModal(true);
     }
+  });
+
+  window.addEventListener("message", function (event) {
+    var d = event.data;
+    if (!d || d.type !== "voice-notes:escape" || event.origin !== appOrigin()) return;
+    if (!frame || event.source !== frame.contentWindow || overlay.hidden) return;
+    closeModal(true);
   });
 
   window.addEventListener("message", function (event) {
@@ -781,8 +987,8 @@
     b.type = "button";
     b.className = "vn-composer-mic";
     b.setAttribute(MIC_ATTR, id);
-    b.setAttribute("aria-label", "Record a voice note");
-    b.setAttribute("title", "Record a voice note");
+    b.setAttribute("aria-label", "Record voice note");
+    b.setAttribute("title", "Record voice note");
     b.innerHTML = MIC_SVG;
     b.addEventListener("mousedown", function (e) {
       // Keep focus/selection in the composer; don't steal caret before we snapshot
@@ -1076,13 +1282,13 @@
   playerOverlay.id = "vn-player-overlay";
   playerOverlay.setAttribute("hidden", "");
   playerOverlay.innerHTML =
-    '<section id="vn-player-modal" role="region" aria-label="Voice note player">' +
+    '<section id="vn-player-modal" role="region" aria-label="Voice note player" tabindex="-1">' +
     '<audio id="vn-player-audio" preload="metadata"></audio>' +
     '<button type="button" id="vn-player-toggle" aria-label="Play voice note" disabled><span aria-hidden="true">▶</span><span class="vn-player-toggle-label">Play</span></button>' +
     '<div id="vn-player-details"><h2 id="vn-player-title">Voice note</h2><p id="vn-player-meta"></p></div>' +
     '<button type="button" id="vn-player-reply" aria-label="Reply with voice" title="Pause and record your feedback" disabled>' + MIC_SVG + '<span>Reply with voice</span></button>' +
-    '<button type="button" id="vn-player-close" aria-label="Close voice note player">×</button>' +
-    '<div id="vn-player-seek-row"><input id="vn-player-seek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Seek voice note" disabled><span id="vn-player-time">0:00 / 0:00</span></div>' +
+    '<button type="button" id="vn-player-close" aria-label="Close voice note player" title="Close">×</button>' +
+    '<div id="vn-player-seek-row"><input id="vn-player-seek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Position in voice note" disabled><span id="vn-player-time" aria-hidden="true">0:00 / 0:00</span></div>' +
     '<p id="vn-player-status" role="status"></p>' +
     '</section>';
 
@@ -1097,8 +1303,14 @@
   function closePlayerPopup() {
     var ov = document.getElementById("vn-player-overlay");
     if (!ov) return;
+    var focusWasInside = ov.contains(document.activeElement);
     ov.setAttribute("hidden", "");
     restorePlayerSpace();
+    if (focusWasInside) {
+      var back = playerReturnFocus && document.contains(playerReturnFocus) ? playerReturnFocus : null;
+      if (back && back.focus) { try { back.focus(); } catch (_) {} }
+    }
+    announce("Voice note player closed");
     var audio = document.getElementById("vn-player-audio");
     if (audio) {
       try { audio.pause(); } catch (_) {}
@@ -1156,6 +1368,26 @@
     if (playerOverlay) syncPlaybackUi();
   }
 
+  function spokenDuration(sec) {
+    var t = Math.max(0, Math.floor(Number(sec) || 0)), m = Math.floor(t / 60), r = t % 60;
+    var parts = [];
+    if (m) parts.push(m + (m === 1 ? " minute" : " minutes"));
+    if (r || !m) parts.push(r + (r === 1 ? " second" : " seconds"));
+    return parts.join(" ");
+  }
+  // Accessible name for a ▶ button: "Play voice note: My weekend, by Maria, 20 seconds".
+  function pillAccessibleName(pill, playing) {
+    // Starts with the action, then repeats the visible text exactly (so voice-control
+    // users can say what they see), then the author if it isn't already shown.
+    var n = pill._vnNote || {};
+    var name = (playing ? "Pause" : "Play") + " voice note";
+    var label = pill.querySelector(".vn-voice-pill__label");
+    var shown = label ? (label.textContent || "").trim() : "";
+    if (shown === "Loading…") return name + ", loading";
+    if (shown && shown !== "Voice note") name += ": " + shown;
+    if (n.name && shown.indexOf(n.name) === -1) name += ", by " + n.name;
+    return name;
+  }
   function updatePlayerTime() {
     var audio = playerOverlay.querySelector("#vn-player-audio");
     var known = Number(currentPlayerNote && currentPlayerNote.duration) || 0;
@@ -1165,7 +1397,7 @@
     seek.max = Math.max(duration, position, 0);
     seek.value = position;
     seek.disabled = !currentPlayerNote || !duration || !overlay.hidden;
-    seek.setAttribute("aria-valuetext", formatDuration(position) + " of " + formatDuration(duration));
+    seek.setAttribute("aria-valuetext", spokenDuration(position) + " of " + spokenDuration(duration));
     playerOverlay.querySelector("#vn-player-time").textContent = formatDuration(position) + " / " + formatDuration(duration);
   }
 
@@ -1207,7 +1439,7 @@
     if (!target && lastEditable && document.contains(lastEditable) && isVisibleComposer(lastEditable)) target = lastEditable;
     var draftTitle = "Feedback at " + formatDuration(audio.currentTime);
     openRecorderForComposer(target, draftTitle);
-    if (!target) showToast("No reply box selected — your link will stay available to copy into a comment.");
+    if (!target) showToast("No reply box found — click into a comment box before you post.");
   }
 
   function matchesCurrentNote(id, src) {
@@ -1225,7 +1457,8 @@
     updatePlayerTime();
     toggle.querySelector("span:first-child").textContent = playing ? "❚❚" : "▶";
     toggle.querySelector("span:last-child").textContent = playing ? "Pause" : "Play";
-    toggle.setAttribute("aria-label", playing ? "Pause voice note" : "Play voice note");
+    var noteName = currentPlayerNote && currentPlayerNote.title ? ": " + currentPlayerNote.title : "";
+    toggle.setAttribute("aria-label", (playing ? "Pause voice note" : "Play voice note") + noteName);
     var pills = document.querySelectorAll(".vn-voice-pill");
     for (var i = 0; i < pills.length; i++) {
       var pill = pills[i];
@@ -1233,8 +1466,7 @@
       var on = active && playing;
       var icon = pill.querySelector(".vn-voice-pill__icon");
       if (icon && icon.textContent !== (on ? "❚❚" : "▶")) icon.textContent = on ? "❚❚" : "▶";
-      var label = pill.querySelector(".vn-voice-pill__label");
-      pill.setAttribute("aria-label", (on ? "Pause " : "Play ") + (label ? label.textContent : "voice note"));
+      pill.setAttribute("aria-label", pillAccessibleName(pill, on));
     }
   }
 
@@ -1283,6 +1515,7 @@
     console.warn("[voice-notes player] Audio controls unavailable; the recorder mic is still active.", err);
   }
 
+  var playerReturnFocus = null;
   function openPlayerPopup(note, context) {
     mountPlayerChrome();
     var ov = document.getElementById("vn-player-overlay");
@@ -1323,6 +1556,12 @@
     audio.src = note.audioUrl;
     syncPlaybackUi();
     playCurrentAudio();
+    // Move keyboard / screen-reader focus into the player; Escape or Close returns it.
+    if (context && context.classList && context.classList.contains("vn-voice-pill")) playerReturnFocus = context;
+    var toggleBtn = document.getElementById("vn-player-toggle");
+    if (toggleBtn && !toggleBtn.disabled) { try { toggleBtn.focus(); } catch (_) {} }
+    announce("Playing voice note" + (note.title ? ": " + note.title : "") + (note.name ? ", by " + note.name : "") +
+      ". Player controls: Pause, Reply with voice, position slider, and Close. Press Escape to close.");
   }
 
   playerOverlay.addEventListener("click", function (e) {
@@ -1371,6 +1610,8 @@
       '<span class="vn-voice-pill__icon" aria-hidden="true">▶</span>' +
       '<span class="vn-voice-pill__label"></span>';
     btn.querySelector(".vn-voice-pill__label").textContent = pillLabel(noteHint || null);
+    btn._vnNote = noteHint || null;
+    btn.setAttribute("aria-label", pillAccessibleName(btn, false));
     btn.addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -1380,6 +1621,8 @@
       btn.querySelector(".vn-voice-pill__label").textContent = "Loading…";
       resolveNote(id, src).then(function (note) {
         btn.querySelector(".vn-voice-pill__label").textContent = pillLabel(note || noteHint);
+        if (note) btn._vnNote = note;
+        btn.setAttribute("aria-label", pillAccessibleName(btn, false));
         openPlayerPopup(note || { id: id, title: "Voice note", audioUrl: src }, btn);
       });
     });
@@ -1389,6 +1632,7 @@
       if (note.title || note.name || note.duration) {
         btn.querySelector(".vn-voice-pill__label").textContent = pillLabel(note);
       }
+      btn._vnNote = note;
       if (note.id) btn.setAttribute("data-vn-play-id", note.id);
       if (note.audioUrl && /^https?:/i.test(note.audioUrl)) {
         btn.setAttribute("data-vn-play-src", note.audioUrl);
@@ -1414,20 +1658,55 @@
     return false;
   }
 
+  // Where a pill for this note would already be visible (same comment/post).
+  function pillScope(node) {
+    var el = node && (node.nodeType === 1 ? node : node.parentElement);
+    if (!el) return null;
+    return (el.closest && el.closest('[class*="comment" i], article, li, [class*="post" i]')) || el.parentElement || el;
+  }
+  function hasPillFor(scope, id) {
+    if (!scope || !id || !scope.querySelector) return false;
+    try { return !!scope.querySelector('.vn-voice-pill[data-vn-play-id="' + String(id).replace(/["\\]/g, "") + '"]'); } catch (_) { return false; }
+  }
+  function hideLinkNode(el) {
+    el.classList.add("vn-voice-link-hidden");
+    el.setAttribute("aria-hidden", "true");
+    if (el.tagName === "A" || el.tagName === "IFRAME") el.setAttribute("tabindex", "-1");
+    el.dataset.vnEnhanced = "1";
+  }
+  // A link preview / embed card that LearnWorlds (or the browser) generated for the URL.
+  var PREVIEW_SEL = '[class*="preview" i],[class*="embed" i],[class*="unfurl" i],[class*="link-card" i],[class*="linkcard" i],' +
+    '[class*="opengraph" i],[class*="og-card" i],[class*="rich-link" i],[class*="oembed" i],[class*="bookmark" i],[data-link-preview]';
+  function previewContainer(node) {
+    var start = node.parentElement;
+    var c = start && start.closest ? start.closest(PREVIEW_SEL) : null;
+    if (!c || c === document.body || c === document.documentElement) return null;
+    if (c.matches("article, main") || c.querySelector("article, textarea, [contenteditable], .vn-voice-pill")) return null;
+    var links = c.querySelectorAll("a[href]");
+    for (var i = 0; i < links.length; i++) if (!parsePlayUrl(links[i].href || links[i].getAttribute("href") || "")) return null;
+    var host = "";
+    try { host = new URL(playBase).hostname; } catch (_) {}
+    var text = (c.textContent || "").replace(PLAY_URL_RE, " ");
+    PLAY_URL_RE.lastIndex = 0;
+    var looksLikeCard = !!c.querySelector("img, picture, svg, iframe, video") || /voice\s*notes?/i.test(text) || (host && text.indexOf(host) !== -1);
+    var rest = text.replace(/voice\s*notes?/gi, "").split(host || "\u0000").join("").replace(/github(\.io)?/gi, "").replace(/[\s\W_]+/g, "");
+    return looksLikeCard && rest.length <= 30 ? c : null;
+  }
+
   function enhanceAnchor(anchor) {
     if (!anchor || anchor.dataset.vnEnhanced === "1") return;
     if (isInsideComposer(anchor)) return;
     if (anchor.closest && anchor.closest(".vn-voice-pill, #vn-player-overlay, #vn-float-overlay")) return;
-    var href = anchor.href || anchor.getAttribute("href") || "";
+    var href = anchor.tagName === "IFRAME" ? (anchor.getAttribute("src") || "") : (anchor.href || anchor.getAttribute("href") || "");
     var parsed = parsePlayUrl(href);
     if (!parsed) return;
-    anchor.dataset.vnEnhanced = "1";
-    anchor.classList.add("vn-voice-link-hidden");
-    anchor.setAttribute("tabindex", "-1");
-    anchor.setAttribute("aria-hidden", "true");
+    var card = previewContainer(anchor);
+    var hideTarget = card || anchor;
+    hideLinkNode(anchor);
+    if (card) hideLinkNode(card);
 
     // Intercept any click that still reaches the anchor
-    anchor.addEventListener("click", function (e) {
+    if (anchor.tagName === "A") anchor.addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
       resolveNote(parsed.id, parsed.src).then(function (note) {
@@ -1436,19 +1715,15 @@
     });
 
     // Don't duplicate pills
-    var next = anchor.nextSibling;
+    var next = hideTarget.nextSibling;
     while (next && next.nodeType === 3 && !(next.nodeValue || "").trim()) next = next.nextSibling;
     if (next && next.classList && next.classList.contains("vn-voice-pill")) {
       if (!parsed.id || next.getAttribute("data-vn-play-id") === parsed.id) return;
     }
-    if (parsed.id && anchor.parentNode && anchor.parentNode.querySelector('.vn-voice-pill[data-vn-play-id="' + parsed.id + '"]')) {
-      return;
-    }
+    if (parsed.id && (hasPillFor(hideTarget.parentNode, parsed.id) || hasPillFor(pillScope(hideTarget), parsed.id))) return;
 
     var pill = makePill(parsed);
-    if (anchor.parentNode) {
-      anchor.parentNode.insertBefore(pill, anchor.nextSibling);
-    }
+    if (hideTarget.parentNode) hideTarget.parentNode.insertBefore(pill, hideTarget.nextSibling);
   }
 
   // Match absolute or site-relative play.html?id=… URLs in plain text
@@ -1483,10 +1758,11 @@
       }
       var hidden = document.createElement("span");
       hidden.className = "vn-voice-link-hidden";
+      hidden.setAttribute("aria-hidden", "true");
       hidden.textContent = raw;
       hidden.dataset.vnEnhanced = "1";
       frag.appendChild(hidden);
-      if (!(parsed.id && parent.querySelector && parent.querySelector('.vn-voice-pill[data-vn-play-id="' + parsed.id + '"]'))) {
+      if (!(parsed.id && (hasPillFor(parent, parsed.id) || hasPillFor(pillScope(parent), parsed.id)))) {
         frag.appendChild(makePill(parsed));
       }
       last = m.index + m[0].length;
@@ -1518,13 +1794,14 @@
       el.remove();
     });
 
-    var links = document.querySelectorAll("a[href]");
+    var links = document.querySelectorAll("a[href], iframe[src]");
     for (var i = 0; i < links.length; i++) {
       var a = links[i];
       if (a.dataset.vnEnhanced === "1") continue;
       if (a.closest && a.closest(".vn-voice-pill")) continue;
       try {
-        if (parsePlayUrl(a.href || a.getAttribute("href") || "")) enhanceAnchor(a);
+        var h = a.tagName === "IFRAME" ? a.getAttribute("src") || "" : a.href || a.getAttribute("href") || "";
+        if (parsePlayUrl(h)) enhanceAnchor(a);
       } catch (_) {}
     }
 

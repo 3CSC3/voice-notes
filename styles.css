@@ -12,7 +12,7 @@
   --accent-ink: #1a1f36; /* dark text on accent for contrast */
   --danger: #dc2626;
   --danger-hover: #b91c1c;
-  --ok: #059669;
+  --ok: #047857;
   --demo: #b45309;
   --demo-bg: #fff7ed;
   --live-bg: #ecfdf5;
@@ -365,3 +365,19 @@ body {
 #btnPause .btn-icon, .player-toggle .btn-icon { color: #fff; font-size: 1rem; }
 .player-toggle { margin: .6rem 0; }
 .player-card audio, audio.preview { display: block; min-height: 54px; }
+
+/* Compact layout, used when the floating recorder panel is made smaller */
+.vn-compact body { min-height: 0; }
+.vn-compact .app { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.vn-compact .header,
+.vn-compact .footer,
+.vn-compact .waveform,
+.vn-compact #result-heading { display: none !important; }
+.vn-compact.vn-has-name .form-row,
+.vn-compact .form-row:has(#noteTitle) { display: none !important; }
+.vn-compact .card { padding: 0.75rem; margin-bottom: 0.5rem; box-shadow: none; }
+.vn-compact .status-row { margin-bottom: 0.5rem; }
+.vn-compact .msg:empty { display: none; }
+
+/* Kept for copying only; never shown */
+.vn-offscreen { position: fixed; left: -9999px; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }

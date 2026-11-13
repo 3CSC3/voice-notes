@@ -9,7 +9,7 @@
   <script src="config.js"></script>
 </head>
 <body>
-  <div class="app">
+  <main class="app">
     <header class="header">
       <div class="header-text">
         <h1>Voice Notes</h1>
@@ -22,8 +22,8 @@
       <h2 id="recorder-heading" class="sr-only">Recorder</h2>
 
       <div class="status-row">
-        <div id="recIndicator" class="rec-dot" hidden></div>
-        <span id="timer" class="timer" aria-live="polite">0:00</span>
+        <div id="recIndicator" class="rec-dot" hidden aria-hidden="true"></div>
+        <span id="timer" class="timer" role="timer" aria-live="off">0:00</span>
         <span id="pausedState" class="paused-state" role="status" hidden>Paused</span>
         <span id="maxHint" class="hint">Max 3:00</span>
       </div>
@@ -33,7 +33,7 @@
         <span></span><span></span><span></span><span></span><span></span>
       </div>
 
-      <audio id="preview" controls class="preview" hidden></audio>
+      <audio id="preview" controls class="preview" hidden aria-label="Listen back to your recording"></audio>
 
       <div class="form-row">
         <label for="displayName">Your name <span class="req">*</span></label>
@@ -59,30 +59,29 @@
       </div>
       <div class="actions" id="actionsPreview" hidden>
         <button type="button" id="btnRerecord" class="btn btn-secondary">Re-record</button>
-        <button type="button" id="btnPost" class="btn btn-primary">Post &amp; get link</button>
+        <button type="button" id="btnPost" class="btn btn-primary">Post voice note</button>
       </div>
 
       <p id="recorderMsg" class="msg" role="status" aria-live="polite"></p>
     </section>
 
     <section class="card result" id="resultSection" hidden aria-labelledby="result-heading">
-      <h2 id="result-heading">Link ready</h2>
-      <p class="result-lead">Paste this into your community post or comment. We’ve also sent it to the page that opened this window when possible.</p>
-      <label class="sr-only" for="shareLink">Share link</label>
-      <div class="link-row">
-        <input id="shareLink" type="text" readonly />
-        <button type="button" id="btnCopy" class="btn btn-primary">Copy</button>
-      </div>
-      <p id="copyMsg" class="msg ok" role="status" aria-live="polite"></p>
+      <h2 id="result-heading">Voice note ready</h2>
+      <p id="resultLead" class="result-lead" role="status" aria-live="polite">Adding it to your comment…</p>
+      <!-- The note's address is kept only for copying; it is never shown. -->
+      <input id="shareLink" class="vn-offscreen" type="text" readonly tabindex="-1" aria-hidden="true" />
       <div class="actions">
+        <button type="button" id="btnInsert" class="btn btn-primary" hidden>Add to comment</button>
+        <button type="button" id="btnCopy" class="btn btn-secondary" hidden>Copy voice note</button>
         <button type="button" id="btnAnother" class="btn btn-secondary">Record another</button>
       </div>
+      <p id="copyMsg" class="msg ok" role="status" aria-live="polite"></p>
     </section>
 
     <footer class="footer">
       <p>Needs microphone permission. When embedded, the iframe must include <code>allow="microphone"</code>.</p>
     </footer>
-  </div>
+  </main>
 
   <script src="app.js"></script>
 </body>

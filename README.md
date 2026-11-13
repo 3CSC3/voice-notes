@@ -1,13 +1,13 @@
 # Voice Notes (LearnWorlds community)
 
-Record a short voice note, get a **shareable link**, and drop it into a LearnWorlds community post or comment. Others tap the orange pill to listen in a same-page player.
+Record a short voice note, get a **shareable link**, and drop it into a LearnWorlds community post or comment. Others tap the orange pill to listen in a non-blocking same-page mini-player.
 
 Free static app (HTML/CSS/vanilla JS) — host on GitHub Pages, embed via a composer mic button in LearnWorlds custom code.
 
 ## How it works
 
 1. Learner focuses a post/comment box, taps the orange mic in its toolbar.
-2. They record (up to 3 minutes), preview, then **Post & get link**.
+2. They record (up to 3 minutes), preview, then **Post voice note**.
 3. Audio is uploaded (Supabase) or stored locally (Demo mode).
 4. A `play.html?id=…` link is copied and, when opened from the floating button, **inserted into the composer** via `postMessage`.
 5. They press Send/Enter as usual. Listeners tap the pill for the same-page player.
@@ -117,11 +117,11 @@ LearnWorlds Embed section: [school pages](https://support.learnworlds.com/suppor
 | `floating-demo.html` | Local community composer simulation |
 | `README.md` | This guide |
 
-### Compact pills + popup player
+### Compact pills + mini-player
 
-In rendered community posts, voice links are replaced visually with a compact orange **▶ Voice note** pill (the raw URL stays hidden in the DOM). Clicking the pill opens a **same-page popup player** — no new tab.
+In rendered community posts, voice links are replaced visually with a compact orange **▶ Voice note** pill (the raw URL stays hidden in the DOM). Clicking the pill opens a **non-blocking mini-player** — no new tab or full-page player overlay. It docks at the bottom on desktop and the top on phones, leaving the composer available.
 
-New recordings insert a short link: `play.html?id=<uuid>`. The popup (and `play.html`) load audio from Supabase by id. Older links that include `&src=` still work.
+New recordings insert a short link: `play.html?id=<uuid>`. The mini-player (and `play.html`) load audio from Supabase by id. Older links that include `&src=` still work.
 
 LearnWorlds snippet must include `supabaseUrl` and `supabaseAnonKey` (see `floating-button-snippet.html`) so pills can resolve audio on `/social` pages.
 
@@ -131,12 +131,12 @@ LearnWorlds snippet must include `supabaseUrl` and `supabaseAnonKey` (see `float
 - While recording, press **Pause** to take a break and **Resume** to continue the same note. The orange steady dot, **Paused** badge and frozen waveform make the state clear. **Stop** finishes the note even if it is paused.
 - The timer and 3-minute limit count **only time actually recording**, not your thinking breaks. Your microphone may still show as in use while paused (so you can resume), but paused speech is not added to the note. Stop releases it.
 - Pause/resume uses native `MediaRecorder.pause()` / `resume()` (modern iOS Safari and Android Chrome). If the browser does not implement both methods, the pause button is hidden and Record/Stop still work. Use an up-to-date browser; actual iPhone/Android hardware has not been tested here.
-- When listening, there is now a large orange **Play / Pause** button in both the community pop-up and the standalone player, in addition to the visible native audio controls. The post's pill changes from **▶** to **❚❚** while its note plays (matching copies update too). The pill's handler toggles the loaded note rather than restarting it; while the modal is open, use its Play/Pause button because the background is deliberately blocked.
-- Closing the pop-up or pressing Escape pauses playback. Reopening the same note resumes at its saved position; selecting a different note switches audio. Pills have at least a 44-pixel tap target; the playback button is at least 48 pixels high.
+- When listening, the community mini-player has orange **Play / Pause**, **Reply with voice**, a seek slider, elapsed/total time and Close. The standalone `play.html` keeps its Play/Pause button and native audio controls. The post's pill changes from **▶** to **❚❚** while its note plays (matching copies update too), and toggles the loaded note rather than restarting it. The community page and composer mics remain usable with the player open.
+- Closing the mini-player or pressing Escape pauses playback. Reopening the same note resumes at its saved position; selecting a different note switches audio. Pills and mini-player controls have at least 44-pixel tap targets. When the recorder is open, Escape closes only the recorder, not the mini-player.
 
 ### Installing this update
 
-Unzip `voice-notes-update.zip` and upload the files **inside** the folder to the root of your existing GitHub repository (not a new subfolder). It includes the recording/playback Pause controls and tab-switching safeguards, without any transcript or translation feature. No new SQL and no change to the LearnWorlds snippet are needed. Wait for GitHub Pages to publish, then refresh the community (a phone may need its website cache cleared).
+Unzip `voice-notes-update.zip` and upload the files **inside** the folder to the root of your existing GitHub repository (not a new subfolder). It includes the latest listen–record–continue feedback workflow plus recording/playback Pause controls and tab-switching safeguards, without any transcript or translation feature. No new SQL and no change to the LearnWorlds snippet are needed. Wait for GitHub Pages to publish, then refresh the community (a phone may need its website cache cleared).
 
 Transcription and translation are deferred. Their source files are saved separately on the development box in `/workspace/voice-notes-transcripts-later/`, NOT in the app or this update. The shipped players never load those scripts or create their iframe/buttons. If old transcript files are already in your GitHub repo, you can leave them unused or delete them later; do not delete `play.html` or `floating-button.js`. Any previously added database text columns are unused and can stay — do not run SQL to remove them.
 
@@ -168,3 +168,83 @@ The orange mic opens a **modal iframe inside the LearnWorlds tab** (`#vn-float-f
 On desktop, browsers usually allow a meeting and the recorder to use the microphone together. Permissions, browser, headset or call software may still cause conflicts; try a short test before class. On phones, calls commonly interrupt web microphone capture. Use headphones to avoid echo. Recording captures **your microphone**, not the meeting's audio from the other tab. Playing a voice note will not automatically send it to students — share the tab/system audio in the meeting if you want them to hear playback.
 
 References: [MDN: MediaRecorder timing and Safari/Android interruption caveats](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/dataavailable_event), [MDN: Screen Wake Lock and its limits](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API).
+
+
+## Desktop / Brave microphone compatibility
+
+The composer detector now recognizes a closed LearnWorlds **“Type something…”** placeholder even before it mounts a contenteditable editor. The microphone opens that editor first and stays before Share; it never presses Share. It also supports `contenteditable="plaintext-only"`, ignores hidden mobile/desktop duplicates, assigns distinct IDs to cloned editors, and rescans after resize/focus/editor attribute changes. This prevents a hidden mobile button from being mistaken for the desktop button.
+
+Mic setup runs before the optional playback controls. If an extension or privacy feature makes audio-control initialization fail, that error no longer prevents the mic from appearing. The mic itself needs no cookies, localStorage, microphone permission or wake-lock permission just to render. Permission is only requested after you press Record inside the recorder.
+
+Desktop-width headless Chromium tests compared the previous deployed commit (`4f10d28d07487807f1827c0d4fcd12253bf4800c`) and the November 10 update. Both render normal editors, including with `navigator.brave` defined, no wake lock, storage access throwing, and postMessage blocked; neither rendered the collapsed/cloned/plaintext-only desktop fixtures correctly. The corrected version passes those fixtures, resizing to/from phone width, and asynchronous editor replacement/link insertion. A simulated audio-listener initialization error also no longer prevents the mic from mounting. This identifies reproducible compatibility gaps, not proof of the exact DOM or Shields settings in a user's Brave browser.
+
+If the mic still does not appear, check whether Brave is blocking the **whole script**. No change inside a blocked JavaScript file can make it execute. Brave normally allows JavaScript. For a one-site diagnostic, open the school in Brave, click the **lion (Shields) icon** beside the address, check **Advanced controls → Block scripts** is off, or temporarily lower Shields for **thelanguageunschool.com only**, and reload. Restore the protections after testing if it made no difference. Do not change global Shields settings. If a script-blocking rule is the cause, students with that same rule may encounter it too. [Brave's site-specific Shields documentation](https://support.brave.app/hc/en-us/articles/360023646212-How-do-I-configure-global-and-site-specific-Shields-settings).
+
+For diagnosis, the developer console can inspect `window.__vnMicStatus` (loaded version, visible composer/mic counts and last scan error). If it is undefined, the script did not initialize (blocked/not included, wrong page/config, or an early error). No personal information or browser fingerprints are collected.
+
+The desktop compatibility fixes remain included in the latest player. No SQL or LearnWorlds snippet changes are needed. Pausing, background-tab behavior and the intentionally absent transcript/translation features remain unchanged.
+
+
+## Listen, record feedback, continue listening
+
+The old full-screen player was a modal with a higher stacking order than the recorder. It covered the community composer and blocked its microphone button. This was a UI limitation, not a restriction on recording feedback.
+
+The community player is now a compact, **non-modal** mini-player. Desktop: docked at the bottom; phone: docked at the top with safe-area spacing. It reserves page padding while visible and clears that padding when closed. Focusing an editor underneath the dock scrolls it into view. The recorder opens above the player and leaves space to keep the paused player visible.
+
+### How to use it
+
+1. Tap a student's voice-note pill. Listen, pause or use the seek slider.
+2. Either use the microphone in the comment composer as usual, or press **Reply with voice** in the mini-player (labelled **Reply** on narrow screens).
+3. Playback automatically pauses before the recorder opens, so speaker audio is not recorded into your feedback. The Reply shortcut pre-fills an editable title such as **Feedback at 0:42**.
+4. Record, optionally pause/resume, then **Post voice note**. This uploads the note and inserts its link into the composer; **you still press Share/Send yourself**.
+5. The mini-player stays paused at exactly the same position. Press Play to continue listening, and repeat as often as you want.
+
+**Reply targeting:** the clicked pill supplies the post/comment context. The shortcut looks for the nearest existing visible composer in that post (including the collapsed desktop placeholder), favouring a comment/reply field. It does not automatically click the site's Share or reply-posting controls. If no suitable field is found, it uses the last focused composer; otherwise it leaves the recorder's result screen open so you can copy and paste its link yourself. If LearnWorlds renders the comment field only after expanding a thread, click that field once before using Reply. Real LearnWorlds markup can vary; the normal composer mic always explicitly selects its own field.
+
+**Separation of listening/recording:** opening any recorder pauses the student audio without resetting or replacing it. The mini-player's playback/seek controls are disabled during recording. Posting or closing the recorder never resumes playback automatically. Closing a recorder with an unfinished recording still discards that unsaved recording as before; it does not discard the student's paused position. Switching to another student's note intentionally loads that other note.
+
+**Scope:** changed `floating-button.js`, `app.js` (optional title from URL) and this README. No schema, snippet, standalone-player or transcription changes.
+
+### Feedback regression tests
+
+Headless Chromium at desktop 1280px and phone 390px: play/seek to 0:07, pause, open the recorder directly from the post's mic while the player is visible, record with native MediaRecorder pause/resume, insert into the correct comment among two posts, resume at the retained position, use Reply while playing (auto-pause and timestamp title), record/post again, close/cancel/Escape without resetting or hiding the mini-player, toggle the original pill, and manually copy when no composer exists. No Share was submitted, all backend writes were intercepted locally, and no transcript/model downloads occurred. Existing Brave-like/collapsed/clone/plaintext-only mic tests and desktop/mobile background safeguards still pass. Actual phone hardware and the school's authenticated comment markup were not accessible for these tests.
+
+## Movable recorder panel (community page)
+
+The recorder that opens from the mic buttons is a floating panel. It does not block the page:
+- **No dark backdrop and no scroll lock.** You can still read, scroll and click the post behind it. Clicking the page does **not** close the recorder, so a recording is never lost that way.
+- **Move it** by dragging its top bar (⠿ "drag to move"). This works with a mouse or a finger. You can also focus the bar and use the arrow keys (Shift moves faster). The panel always stays on screen.
+- **Make it smaller** with the – button: only the timer and the Record/Pause/Stop/Post buttons stay. Press □ to make it big again. The name field still shows if your name is empty.
+- **Default place.** On desktop it sits bottom-right (about 380 px wide), above the mini-player. On phones it is a bottom sheet (the mini-player is at the top).
+- **Remembered in this browser.** Position (separately for desktop and phone) and small/big are saved in `localStorage` (`vn-recorder-pos-v1-*`, `vn-recorder-compact-v1`).
+- **Closing.** Use × to close. Escape only closes it when focus is on the panel itself, not while you are typing or reading on the page.
+
+## Button only: no visible links (and screen-reader friendly)
+
+**What readers see.** Anyone reading a post or comment sees only the orange **▶ Voice note** button. Pressing it plays the note in the mini-player.
+- **The link is hidden** in every form LearnWorlds may show it: an autolinked `<a>`, plain-text URLs, links with other text (e.g. "Open link"), link-preview cards and `<iframe>` embeds.
+- **Hidden before the button appears.** CSS hides these straight away, so the address never flashes.
+- **Hidden from screen readers too.** It uses `display:none` + `aria-hidden`, so the URL is never read out.
+- **One button per note** in each post/comment.
+- **Your own words stay.** Text around the link is kept.
+
+**How it is stored.** The short `play.html?id=…` address is still saved in the comment text, because LearnWorlds only stores plain text. That is how the button is found. Nobody reading sees it.
+
+**Recorder.** The flow is: Record → (Pause) → Stop → **Post voice note**. The note goes straight into the comment box and you press Send. No link, Copy or Open option is shown.
+- **No comment box selected:** the recorder stays open. Click into a comment box and press **Add to comment**. A **Copy voice note** button is offered as a backup; it copies the note without showing the address.
+
+**Limitation.** In the comment box itself, before you press Send (and when you edit a comment later), you still see the address. Comment editors only hold plain text, so replacing it with a button there would risk the editor breaking or dropping the link.
+
+**Accessibility (screen readers, keyboard)**
+- **▶ buttons** are real `<button>`s, with names like "Play voice note: My weekend · 0:20, by Maria". The name changes to "Pause …" while it plays.
+- **Composer mic:** "Record voice note".
+- **Mini-player:** a labelled region. When it opens, focus moves to its Play/Pause button, whose name changes with the state (e.g. "Pause voice note: My weekend").
+  - The position slider reads e.g. "42 seconds of 1 minute 30 seconds".
+  - It also has "Reply with voice" and "Close voice note player".
+  - Escape closes it and focus goes back to the ▶ button.
+- **Recorder:** a dialog named "Voice note recorder", and focus starts on its Close button.
+  - The top bar can be moved with the arrow keys, and the smaller/bigger button reports its state.
+  - Status ("Recording…", "Paused…", "Voice note added to your comment") is announced.
+  - The timer is not read out every second.
+  - Escape closes it when idle. It never throws away a recording you haven't posted.
+  - When it closes, focus returns to the comment box.

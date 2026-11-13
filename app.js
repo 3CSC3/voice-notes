@@ -45,6 +45,9 @@
   const resultSection = document.getElementById("resultSection");
   const shareLink = document.getElementById("shareLink");
   const btnCopy = document.getElementById("btnCopy");
+  const btnInsert = document.getElementById("btnInsert");
+  const resultLead = document.getElementById("resultLead");
+  let lastNoteId = "";
   const btnAnother = document.getElementById("btnAnother");
   const copyMsg = document.getElementById("copyMsg");
 
@@ -540,18 +543,37 @@
     }
   }
 
+  const embedded = window.parent && window.parent !== window;
   function showResult(link) {
     recorderSection.hidden = true;
     resultSection.hidden = false;
-    shareLink.value = link;
+    shareLink.value = link; // kept for copying only, never displayed
     copyMsg.textContent = "";
-    copyText(link).then((ok) => {
-      copyMsg.textContent = ok
-        ? "Link copied to clipboard."
-        : "Select the link and copy it manually.";
-      copyMsg.className = "msg " + (ok ? "ok" : "error");
-    });
+    btnInsert.hidden = true;
+    if (embedded) {
+      // The community page puts it into the comment box and closes this panel.
+      resultLead.textContent = "Adding it to your comment…";
+      btnCopy.hidden = true;
+    } else {
+      resultLead.textContent = "Copy it and paste it into your post — readers will see a ▶ Voice note button.";
+      btnCopy.hidden = false;
+    }
   }
+  // The page could not find a comment box: offer to add it once one is clicked.
+  window.addEventListener("message", (event) => {
+    if (!embedded || event.source !== window.parent) return;
+    const d = event.data;
+    if (!d || d.type !== "voice-notes:insert-result" || d.ok) return;
+    if (resultSection.hidden || !shareLink.value) return;
+    resultLead.textContent = "Click into the comment box on the page, then press “Add to comment”.";
+    btnInsert.hidden = false;
+    btnCopy.hidden = false;
+  });
+  btnInsert.addEventListener("click", () => {
+    if (!shareLink.value) return;
+    resultLead.textContent = "Adding it to your comment…";
+    notifyParent(shareLink.value, lastNoteId);
+  });
 
   async function postNote() {
     const name = displayName.value.trim();
@@ -600,8 +622,9 @@
       try { localStorage.setItem("vn_display_name", name); } catch (_) {}
 
       const link = buildShareLink(id, audioUrl || undefined);
-      notifyParent(link, id);
+      lastNoteId = id;
       showResult(link);
+      notifyParent(link, id);
       resetToIdle();
       noteTitle.value = "";
     } catch (err) {
@@ -625,15 +648,56 @@
   btnPost.addEventListener("click", postNote);
   btnCopy.addEventListener("click", async () => {
     const ok = await copyText(shareLink.value);
-    copyMsg.textContent = ok ? "Copied again." : "Could not copy — select the link manually.";
+    copyMsg.textContent = ok ? "Copied — paste it into your comment." : "Could not copy here. Click into a comment box and press “Add to comment”.";
     copyMsg.className = "msg " + (ok ? "ok" : "error");
   });
   btnAnother.addEventListener("click", () => {
     resultSection.hidden = true;
     recorderSection.hidden = false;
     copyMsg.textContent = "";
+    shareLink.value = "";
     resetToIdle();
   });
 
+  // ---- Compact mode (requested by the floating panel on the community page) ----
+  // The parent only toggles a layout class; nothing is read from or sent to it except our size.
+  let compact = false;
+  function reportSize() {
+    if (window.parent === window) return;
+    const app = document.querySelector(".app");
+    if (!app) return;
+    const h = Math.ceil(app.getBoundingClientRect().height);
+    try { window.parent.postMessage({ type: "voice-notes:size", height: h, compact }, "*"); } catch (_) {}
+  }
+  function applyCompact() {
+    document.documentElement.classList.toggle("vn-compact", compact);
+    document.documentElement.classList.toggle("vn-has-name", !!displayName.value.trim());
+    reportSize();
+  }
+  displayName.addEventListener("input", applyCompact);
+  window.addEventListener("message", (event) => {
+    if (event.source !== window.parent || window.parent === window) return;
+    const d = event.data;
+    if (!d || d.type !== "voice-notes:compact") return;
+    compact = !!d.compact;
+    applyCompact();
+  });
+  try {
+    if ("ResizeObserver" in window) new ResizeObserver(reportSize).observe(document.querySelector(".app"));
+  } catch (_) {}
+
+  // Escape inside the embedded recorder closes the panel, but never throws away a
+  // recording in progress or one that has not been posted yet.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || window.parent === window) return;
+    const busy = !document.getElementById("actionsRecording").hidden || !document.getElementById("actionsPreview").hidden;
+    if (busy && !recorderSection.hidden) {
+      setMsg("To close, stop and post your recording first, or press the Close recorder button.");
+      return;
+    }
+    try { window.parent.postMessage({ type: "voice-notes:escape" }, "*"); } catch (_) {}
+  });
+
   showActions("idle");
+  applyCompact();
 })();
