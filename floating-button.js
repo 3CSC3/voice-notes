@@ -93,7 +93,7 @@
 
   if (!pathMatches()) return;
   window.__vnFloatInstalled = true;
-  var micStatus = window.__vnMicStatus = { version: "2026-11-13-listen-and-record", loaded: true, composers: 0, visibleMics: 0, lastError: "" };
+  var micStatus = window.__vnMicStatus = { version: "2026-11-13-narrow-player", loaded: true, composers: 0, visibleMics: 0, lastError: "" };
 
   function appOrigin() {
     try {
@@ -201,10 +201,13 @@
     "#vn-player-overlay{position:fixed;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));",
     "bottom:max(12px,env(safe-area-inset-bottom));z-index:" + (Number(cfg.zIndex) + 1) + ";pointer-events:none;}",
     "#vn-player-overlay[hidden]{display:none!important;}",
-    "#vn-player-modal{pointer-events:auto;box-sizing:border-box;margin:0 auto;width:min(850px,100%);",
+    "#vn-player-modal{pointer-events:auto;box-sizing:border-box;margin:0 auto;width:min(420px,100%);",
     "background:#fff;border:1px solid #f7d9a7;border-top:3px solid #f7a425;border-radius:14px;padding:10px 12px;",
     "box-shadow:0 8px 36px rgba(15,23,42,.24);font:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1f36;",
-    "display:grid;grid-template-columns:48px minmax(0,1fr) auto 44px;gap:6px 10px;align-items:center;}",
+    /* Narrow centred card: title + Reply + Close on top, ↺ 5s and Play centred, slider below. */
+    "display:grid;grid-template-columns:minmax(0,1fr) auto 44px;grid-template-areas:'details reply close' 'controls controls controls' 'seek seek seek' 'status status status';gap:6px 8px;align-items:center;}",
+    "#vn-player-details{grid-area:details;}#vn-player-reply{grid-area:reply;}#vn-player-close{grid-area:close;}",
+    "#vn-player-controls{grid-area:controls;display:flex;align-items:center;justify-content:center;gap:14px;padding:2px 0;}",
     "#vn-player-details{min-width:0;}",
     "#vn-player-title{font-weight:700;font-size:.95rem;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}",
     "#vn-player-meta{margin:.15rem 0 0;color:#5b6478;font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}",
@@ -212,7 +215,7 @@
     "display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;min-width:44px;border-radius:999px;padding:8px 12px;",
     "font:600 .85rem system-ui,-apple-system,Segoe UI,Roboto,sans-serif;touch-action:manipulation;",
     "background:#f7a425!important;color:#fff!important;-webkit-text-fill-color:#fff!important;}",
-    "#vn-player-toggle{min-height:48px;padding:8px;}",
+    "#vn-player-toggle{width:56px;height:56px;min-height:56px;padding:0;font-size:1.15rem;box-shadow:0 2px 8px rgba(247,164,37,.45);}",
     "#vn-player-toggle .vn-player-toggle-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);}",
     "#vn-player-toggle span,#vn-player-reply span{color:#fff!important;-webkit-text-fill-color:#fff!important;}",
     "#vn-player-reply svg{width:18px;height:18px;fill:#fff!important;flex:none;}",
@@ -222,19 +225,19 @@
     "background:#f7a425!important;color:#fff!important;-webkit-text-fill-color:#fff!important;font:700 .8rem system-ui,-apple-system,Segoe UI,Roboto,sans-serif;touch-action:manipulation;}",
     "#vn-player-back span{color:#fff!important;-webkit-text-fill-color:#fff!important;}",
     "#vn-player-back:focus-visible,#vn-player-toggle:focus-visible,#vn-player-reply:focus-visible,#vn-player-close:focus-visible{outline:3px solid #1a1f36;outline-offset:2px;}",
-    "#vn-player-seek-row{grid-column:1/-1;display:flex;align-items:center;gap:10px;min-height:28px;}",
+    "#vn-player-seek-row{grid-area:seek;display:flex;align-items:center;gap:10px;min-height:28px;}",
     "#vn-player-seek{appearance:auto!important;flex:1;min-width:0;width:auto;height:28px;padding:0;margin:0;accent-color:#f7a425;cursor:pointer;}",
     "#vn-player-time{font-size:.78rem;color:#5b6478;font-variant-numeric:tabular-nums;white-space:nowrap;}",
     "#vn-player-audio{display:none!important;}",
-    "#vn-player-status{grid-column:1/-1;margin:0;font-size:.8rem;color:#5b6478;}",
+    "#vn-player-status{grid-area:status;margin:0;font-size:.8rem;color:#5b6478;}",
     "#vn-player-status:empty{display:none;}",
     "#vn-player-status.is-error{color:#dc2626;}",
     "@media(max-width:600px){",
-    "#vn-player-overlay{top:max(8px,env(safe-area-inset-top));bottom:auto;left:8px;right:8px;}",
-    "#vn-player-modal{grid-template-columns:44px minmax(0,1fr) auto 44px;gap:4px 6px;padding:8px;}",
+    "#vn-player-overlay{top:max(8px,env(safe-area-inset-top));bottom:auto;left:12px;right:12px;}",
+    "#vn-player-modal{width:min(360px,100%);gap:4px 6px;padding:8px 10px;}",
     "#vn-player-reply{padding:8px;font-size:.8rem;}",
     "#vn-player-reply span{display:none;}#vn-player-reply:after{content:'Reply';}",
-    "#vn-player-toggle{min-height:44px;}#vn-player-title{font-size:.85rem;}",
+    "#vn-player-toggle{width:52px;height:52px;min-height:52px;}#vn-player-title{font-size:.85rem;}",
     "}",
     /* Composer mic — toolbar icon size (~24–32px), LearnWorlds-friendly */
     ".vn-composer-mic{",
@@ -484,7 +487,11 @@
     var bottomGap = 16;
     try {
       // Desktop mini-player docks at the bottom: start the panel just above it.
-      if (playerOverlay && !playerOverlay.hidden) bottomGap += Math.ceil(playerOverlay.getBoundingClientRect().height) + 8;
+      var pm = playerOverlay && !playerOverlay.hidden ? playerOverlay.querySelector("#vn-player-modal") : null;
+      if (pm) {
+        var pr = pm.getBoundingClientRect(), x0 = window.innerWidth - w - 16;
+        if (pr.right > x0 && pr.left < x0 + w) bottomGap += Math.ceil(window.innerHeight - pr.top) - 16 + 8;
+      }
     } catch (_) {}
     return { x: window.innerWidth - w - 16, y: window.innerHeight - h - bottomGap };
   }
@@ -1317,11 +1324,15 @@
   playerOverlay.innerHTML =
     '<section id="vn-player-modal" role="region" aria-label="Voice note player" tabindex="-1">' +
     '<audio id="vn-player-audio" preload="metadata"></audio>' +
-    '<button type="button" id="vn-player-toggle" aria-label="Play voice note" disabled><span aria-hidden="true">▶</span><span class="vn-player-toggle-label">Play</span></button>' +
+    // DOM order = focus order: title, ↺ 5s, Play/Pause, slider, Reply, Close.
     '<div id="vn-player-details"><h2 id="vn-player-title">Voice note</h2><p id="vn-player-meta"></p></div>' +
+    '<div id="vn-player-controls">' +
+    '<button type="button" id="vn-player-back" title="Back 5 seconds" disabled><span aria-hidden="true">↺ 5s</span><span class="vn-sr-only">Back 5 seconds</span></button>' +
+    '<button type="button" id="vn-player-toggle" aria-label="Play voice note" disabled><span aria-hidden="true">▶</span><span class="vn-player-toggle-label">Play</span></button>' +
+    '</div>' +
+    '<div id="vn-player-seek-row"><input id="vn-player-seek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Position in voice note" disabled><span id="vn-player-time" aria-hidden="true">0:00 / 0:00</span></div>' +
     '<button type="button" id="vn-player-reply" aria-label="Reply with voice" title="Pause and record your feedback" disabled>' + MIC_SVG + '<span>Reply with voice</span></button>' +
     '<button type="button" id="vn-player-close" aria-label="Close voice note player" title="Close">×</button>' +
-    '<div id="vn-player-seek-row"><button type="button" id="vn-player-back" title="Back 5 seconds" disabled><span aria-hidden="true">↺ 5s</span><span class="vn-sr-only">Back 5 seconds</span></button><input id="vn-player-seek" type="range" min="0" max="0" step="0.1" value="0" aria-label="Position in voice note" disabled><span id="vn-player-time" aria-hidden="true">0:00 / 0:00</span></div>' +
     '<p id="vn-player-status" role="status"></p>' +
     '</section>';
 
@@ -1398,6 +1409,7 @@
 
   // ---- Listening + recording at the same time ----
   var myRecordingState = "idle";
+  var pausedAt = 0, userSeekTo = null, seekRetried = false;
   function pauseMyRecordingForPlayback() {
     if (overlay.hidden || !frame || !frame.contentWindow) return;
     try { frame.contentWindow.postMessage({ type: "voice-notes:pause-recording" }, appOrigin()); } catch (_) {}
@@ -1541,7 +1553,7 @@
     if (!currentPlayerNote || !audio.getAttribute("src")) return;
     // If my recording is running, pause it first so the student's audio isn't captured.
     if (!overlay.hidden) pauseMyRecordingForPlayback();
-    if (audio.ended) audio.currentTime = 0;
+    if (audio.ended) { userSeekTo = 0; audio.currentTime = 0; }
     var promise = audio.play();
     if (promise && promise.catch) promise.catch(function () {
       statusEl.textContent = "Press Play to listen.";
@@ -1561,14 +1573,42 @@
   playerOverlay.querySelector("#vn-player-reply").addEventListener("click", replyWithVoice);
   playerOverlay.querySelector("#vn-player-back").addEventListener("click", function () {
     var a = playerOverlay.querySelector("#vn-player-audio");
-    try { a.currentTime = Math.max(0, (a.currentTime || 0) - 5); } catch (_) {}
+    userSeekTo = Math.max(0, (a.currentTime || 0) - 5);
+    try { a.currentTime = userSeekTo; } catch (_) {}
     updatePlayerTime();
     announce("Back 5 seconds, " + spokenDuration(a.currentTime || 0));
   });
   playerOverlay.querySelector("#vn-player-seek").addEventListener("input", function (e) {
-    try { playerOverlay.querySelector("#vn-player-audio").currentTime = Number(e.target.value) || 0; } catch (_) {}
+    userSeekTo = Number(e.target.value) || 0;
+    try { playerOverlay.querySelector("#vn-player-audio").currentTime = userSeekTo; } catch (_) {}
     updatePlayerTime();
   });
+  // Keep the student's note where it was. Recorder-made WebM files have no seek index,
+  // and Chrome can occasionally jump such a file back to 0:00 after a seek or pause.
+  (function guardPosition() {
+    var a = playerOverlay.querySelector("#vn-player-audio");
+    function remember() { if (!a.seeking && !a.ended) pausedAt = a.currentTime || 0; }
+    a.addEventListener("timeupdate", remember);
+    a.addEventListener("pause", remember);
+    a.addEventListener("loadstart", function () { pausedAt = 0; userSeekTo = null; });
+    a.addEventListener("seeked", function () {
+      var t = a.currentTime || 0;
+      var askedForStart = userSeekTo !== null && userSeekTo < 0.5;
+      // A requested seek that landed at 0:00 instead (no seek index yet): try it once more.
+      if (userSeekTo !== null && !askedForStart && t < 0.05 && !seekRetried) {
+        seekRetried = true;
+        try { a.currentTime = userSeekTo; } catch (_) {}
+        return;
+      }
+      seekRetried = false;
+      if (userSeekTo !== null && Math.abs(t - userSeekTo) < 0.5) { userSeekTo = null; pausedAt = t; return; }
+      // A jump back to 0:00 that nobody asked for: put it back where it was.
+      if (!askedForStart && !a.ended && pausedAt >= 0.5 && t < 0.05) {
+        userSeekTo = pausedAt;
+        try { a.currentTime = pausedAt; } catch (_) {}
+      }
+    });
+  })();
   ["timeupdate", "durationchange", "loadedmetadata"].forEach(function (event) {
     playerOverlay.querySelector("#vn-player-audio").addEventListener(event, updatePlayerTime);
   });

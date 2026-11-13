@@ -263,3 +263,15 @@ You can keep the student's mini-player and your recorder open together, on deskt
   - Your recording never resumes by itself.
 - **Typical flow:** play → pause at the bit → **Reply with voice** → Record → play her note again / **↺ 5s** / drag the slider → Resume → Stop → **Post voice note** → Send.
 - **Keyboard.** Escape in the mini-player closes only the mini-player. Reply with voice, when the recorder is already open, pauses her note and moves focus to the recorder.
+
+## Narrow mini-player
+
+The student's mini-player is a small centred card:
+- **Size and place.** Up to 420 px wide at the bottom-centre on desktop, and up to 360 px wide at the top-centre on phones, with margins.
+- **Layout.**
+  - Top row: title and name on the left, **Reply with voice** and **×** on the right.
+  - Middle row: **↺ 5s** and a large **Play/Pause** button, centred.
+  - Bottom row: the position slider and time.
+- **Keyboard / screen-reader order:** title → ↺ 5s → Play/Pause → slider → Reply → Close.
+- **Room for the recorder.** On a wide screen, the recorder keeps its full-height spot bottom-right beside the player. It only moves above the player if they would overlap (narrower windows, or a saved or dragged spot). On phones it stays below the player.
+- **Keeps its place.** If the browser jumps a recorder-made voice note back to 0:00 after a seek or pause, the player puts it back where it was.
